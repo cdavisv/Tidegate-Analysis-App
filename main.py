@@ -6,6 +6,8 @@ import data_loader
 import data_combiner
 import visualization
 import analysis
+import species_analysis
+import environmental_analysis
 
 def main():
     """
@@ -14,11 +16,9 @@ def main():
     # --- Setup ---
     warnings.filterwarnings('ignore')
     pd.set_option('display.max_columns', 50)
+    pd.set_option('display.width', 120)
 
     # --- 1. Data Loading ---
-    # Use input() for interactive file paths or hardcode them
-    # camera_data_filepath = input("Enter path to camera data CSV: ")
-    # water_data_filepath = input("Enter path to water data CSV: ")
     camera_data_filepath = 'willanch_camera_final.csv'
     water_data_filepath = 'willanch_sensor_final.csv'
 
@@ -30,39 +30,45 @@ def main():
         print("One or both data files failed to load. Exiting.")
         return
 
-    # --- 2. Data Combination ---
+    # --- 2. Initial Species Diversity Analysis ---
+    species_summary, species_df_raw = species_analysis.analyze_species_diversity(camera_df)
+
+    # --- 3. Data Combination ---
     combined_df = data_combiner.combine_data(camera_df, water_df)
     
-    # Create a DataFrame of just species detections for easier analysis
-    species_df = combined_df[combined_df['has_camera_data']].copy()
+    # --- 4. Environmental Analysis ---
+    # Capture the four returned dataframes
+    mtr_gate_df, hinge_gate_df, tidal_df, temp_df = environmental_analysis.analyze_environmental_factors(combined_df)
 
-    # --- 3. Exploratory Analysis & Visualization ---
-    print("\n--- Running Initial Visualizations ---")
-    visualization.create_safe_water_visualizations(combined_df, title_suffix="(Combined & Interpolated)")
-    visualization.create_analysis_plots(combined_df, species_df)
+    # --- 5. Species-Specific Environmental Preferences ---
+    species_df_combined = combined_df[combined_df['has_camera_data']].copy()
+    species_analysis.analyze_species_preferences(species_df_combined)
 
-    # --- 4. Core Analyses ---
-    print("\n--- Running Core Analyses ---")
-    gate_summary, gate_test_results = analysis.analyze_gate_impact(combined_df)
-    if gate_summary is not None:
-        visualization.plot_gate_analysis(gate_summary)
-
-    hourly_stats, monthly_stats = analysis.analyze_temporal_patterns(combined_df)
+    # --- 6. Visualization ---
+    print("\n--- Generating All Visualizations ---")
     
+    # Call the plotting function with the four captured dataframes
+    visualization.plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df)
+    
+    # Restore calls to other general visualization functions
+    visualization.create_safe_water_visualizations(combined_df, title_suffix="(Combined & Interpolated)")
+    visualization.create_analysis_plots(combined_df, species_df_raw)
+
+    # --- 7. Modeling ---
     glm_model = analysis.run_glm_analysis(combined_df)
 
-    # --- 5. Export Results ---
+    # --- 8. Export Results ---
     print("\n--- Exporting Final Datasets ---")
     output_filename = 'combined_analysis_results.csv'
     combined_df.to_csv(output_filename, index=False)
     print(f"✅ Combined and processed data saved to: {output_filename}")
 
-    if not species_df.empty:
-        species_summary = species_df.groupby('Species')['Count'].sum().sort_values(ascending=False).reset_index()
-        species_summary.to_csv('species_detection_summary.csv', index=False)
+    if not species_summary.empty:
+        species_summary.to_csv('species_detection_summary.csv')
         print("✅ Species summary saved to: species_detection_summary.csv")
 
     print("\n🎉 Analysis Complete! 🎉")
+
 
 if __name__ == '__main__':
     main()

@@ -75,7 +75,7 @@ def load_and_prepare_water_data(file_path, file_id="Unknown", max_interpolation_
         'Dissolved Oxygen mgL': 'DO_mgL', 'DO (mg/L)': 'DO_mgL',
         'Salinity': 'Salinity_psu', 'Sal psu': 'Salinity_psu', 'Sal (ppt)': 'Salinity_ppt',
         'Turbidity FNU': 'Turbidity_FNU', 'Turb FNU/NTU': 'Turbidity_FNU', 'Turbidity NTU': 'Turbidity_NTU',
-        'Depth m': 'Depth_m', 'cDepth m': 'Depth', 'Tide_Level_Out_m': 'Depth',
+        'Depth m': 'Depth_m', 'cDepth m': 'cDepth_m', # Keep specific depth names for fallback logic
         'Gate Opening MTR [Degrees]': 'Gate_Opening_MTR_Deg',
         'Date Time': 'DateTime_Source', 'PST': 'DateTime_Source', 'DateTime': 'DateTime_Source'
     }
@@ -92,7 +92,6 @@ def load_and_prepare_water_data(file_path, file_id="Unknown", max_interpolation_
         if col != 'DateTime':
             water_df[col] = pd.to_numeric(water_df[col], errors='coerce')
 
-    # --- ADDED THIS BLOCK TO FIX THE ERROR ---
     # Fallback to create a generic Water_Temp_C column for consistent analysis
     if 'Water_Temp_C' not in water_df.columns:
         if 'Water_Temp_In_C' in water_df.columns:
@@ -101,6 +100,19 @@ def load_and_prepare_water_data(file_path, file_id="Unknown", max_interpolation_
         elif 'Water_Temp_Out_C' in water_df.columns:
             water_df['Water_Temp_C'] = water_df['Water_Temp_Out_C']
             print("  --> Created 'Water_Temp_C' from 'Water_Temp_Out_C' for standardization.")
+
+    # --- ADDED THIS BLOCK TO FIX THE DEPTH ISSUE ---
+    # Standardize depth column for consistent analysis
+    if 'Depth' not in water_df.columns:
+        if 'Tide_Level_Out_m' in water_df.columns:
+            water_df['Depth'] = water_df['Tide_Level_Out_m']
+            print("  --> Created 'Depth' column from 'Tide_Level_Out_m' for standardization.")
+        elif 'Depth_m' in water_df.columns:
+            water_df['Depth'] = water_df['Depth_m']
+            print("  --> Created 'Depth' column from 'Depth_m' for standardization.")
+        elif 'Tide_Level_Verified_m' in water_df.columns:
+            water_df['Depth'] = water_df['Tide_Level_Verified_m']
+            print("  --> Created 'Depth' column from 'Tide_Level_Verified_m' for standardization.")
     # --- END OF ADDED BLOCK ---
 
     water_df = water_df.set_index('DateTime').sort_index()
