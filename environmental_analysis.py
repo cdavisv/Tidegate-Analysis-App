@@ -35,17 +35,16 @@ def analyze_environmental_factors(combined_df):
     print("\n\n=== ENVIRONMENTAL ANALYSIS ===")
     
     # --- 1. MTR Gate Analysis ---
-    # Bins based on Min: 0, Avg: 39, Max: 87
     mtr_bins = [-1, 5, 39, 63, 88]
     mtr_labels = ['Closed (0-5°)', 'Partially Open (5-39°)', 'Open (39-63°)', 'Wide Open (>63°)']
     mtr_gate_analysis = _analyze_single_gate(combined_df, 'Gate_Opening_MTR_Deg', mtr_bins, mtr_labels)
 
     # --- 2. Top Hinge Gate Analysis ---
-    # Bins based on Min: -1.3, Avg: 3.1, Max: 41
     hinge_bins = [-2, 4, 20, 35, 42]
     hinge_labels = ['Closed (-2-4°)', 'Partially Open (4-20°)', 'Open (20-35°)', 'Wide Open (>35°)']
-    # The original column name from the source file
-    hinge_col_name = 'Gate Opening Top Hinge [Degrees]'
+    
+    # FIX: Use the new, standardized column name for the hinge gate analysis.
+    hinge_col_name = 'Gate_Opening_Top_Hinge_Deg' 
     hinge_gate_analysis = _analyze_single_gate(combined_df, hinge_col_name, hinge_bins, hinge_labels)
 
     # Initialize other variables

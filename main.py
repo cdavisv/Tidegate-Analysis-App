@@ -1,73 +1,77 @@
 # main.py
 
 import pandas as pd
-import warnings
 import data_loader
 import data_combiner
-import visualization
-import analysis
 import species_analysis
 import environmental_analysis
+import bird_tide_analysis
+import visualization
+
+# --- CONFIGURATION ---
+# Use this variable to control the maximum time gap (in hours) to fill with interpolation.
+MAX_INTERPOLATION_HOURS = 3  # <-- CHANGE THIS VALUE
+
+# Define the file paths for your data files.
+# TODO: Update these paths to point to your actual data files.
+CAMERA_DATA_PATH = 'willanch_camera_final.csv'
+WATER_DATA_PATH = 'willanch_sensor_final.csv'
+
 
 def main():
     """
-    Main function to run the complete wildlife and water quality analysis pipeline.
+    Main function to orchestrate the entire data analysis pipeline,
+    from data loading and combination to analysis and visualization.
     """
-    # --- Setup ---
-    warnings.filterwarnings('ignore')
-    pd.set_option('display.max_columns', 50)
-    pd.set_option('display.width', 120)
+    print("--- Starting Analysis Pipeline ---")
 
-    # --- 1. Data Loading ---
-    camera_data_filepath = 'willanch_camera_final.csv'
-    water_data_filepath = 'willanch_sensor_final.csv'
+    # 1. Load and Prepare Data
+    # These functions load the raw camera and water data from CSVs and
+    # standardize the formats and column names.
+    camera_df = data_loader.load_and_prepare_camera_data(CAMERA_DATA_PATH)
+    water_df = data_loader.load_and_prepare_water_data(WATER_DATA_PATH)
 
-    print("--- Loading and Preparing Data ---")
-    camera_df = data_loader.load_and_prepare_camera_data(camera_data_filepath)
-    water_df = data_loader.load_and_prepare_water_data(water_data_filepath, file_id="Willanch")
+    # 2. Combine and Interpolate Data
+    # This function merges the two datasets by their timestamps and fills
+    # missing water data points using a time-aware interpolation method,
+    # limited by the MAX_INTERPOLATION_HOURS variable.
+    combined_df = data_combiner.combine_data(
+        camera_df,
+        water_df,
+        max_interp_hours=MAX_INTERPOLATION_HOURS
+    )
 
-    if camera_df.empty or water_df.empty:
-        print("One or both data files failed to load. Exiting.")
+    if combined_df.empty:
+        print("\nCombined DataFrame is empty. Cannot proceed with analysis. Exiting.")
         return
 
-    # --- 2. Initial Species Diversity Analysis ---
-    species_summary, species_df_raw = species_analysis.analyze_species_diversity(camera_df)
+    # 3. Perform Analyses
+    # Each analysis module processes the combined data to extract insights.
+    species_summary, species_df = species_analysis.analyze_species_diversity(combined_df)
+    mtr_gate_analysis, hinge_gate_analysis, tidal_analysis, temp_analysis = environmental_analysis.analyze_environmental_factors(combined_df)
+    bird_summary_table = bird_tide_analysis.analyze_bird_tide_gate_behavior(combined_df)
 
-    # --- 3. Data Combination ---
-    combined_df = data_combiner.combine_data(camera_df, water_df)
     
-    # --- 4. Environmental Analysis ---
-    # Capture the four returned dataframes
-    mtr_gate_df, hinge_gate_df, tidal_df, temp_df = environmental_analysis.analyze_environmental_factors(combined_df)
-
-    # --- 5. Species-Specific Environmental Preferences ---
-    species_df_combined = combined_df[combined_df['has_camera_data']].copy()
-    species_analysis.analyze_species_preferences(species_df_combined)
-
-    # --- 6. Visualization ---
-    print("\n--- Generating All Visualizations ---")
+    # 4. Generate Visualizations
+    # The visualization module takes the results of the analyses
+    # and generates plots and graphs.
+    print("\n\n--- Generating All Visualizations ---")
+    visualization.plot_species_analysis(species_summary)
+    visualization.plot_environmental_factors(
+        mtr_gate_analysis,
+        hinge_gate_analysis,
+        tidal_analysis,
+        temp_analysis
+    )
     
-    # Call the plotting function with the four captured dataframes
-    visualization.plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df)
-    
-    # Restore calls to other general visualization functions
-    visualization.create_safe_water_visualizations(combined_df, title_suffix="(Combined & Interpolated)")
-    visualization.create_analysis_plots(combined_df, species_df_raw)
+    if bird_summary_table is not None:
+        visualization.plot_bird_analysis(bird_summary_table, combined_df)
+    else:
+        print("\nSkipping bird behavior plots: No summary data was generated.")
 
-    # --- 7. Modeling ---
-    glm_model = analysis.run_glm_analysis(combined_df)
+    visualization.create_safe_water_visualizations(combined_df)
 
-    # --- 8. Export Results ---
-    print("\n--- Exporting Final Datasets ---")
-    output_filename = 'combined_analysis_results.csv'
-    combined_df.to_csv(output_filename, index=False)
-    print(f"✅ Combined and processed data saved to: {output_filename}")
-
-    if not species_summary.empty:
-        species_summary.to_csv('species_detection_summary.csv')
-        print("✅ Species summary saved to: species_detection_summary.csv")
-
-    print("\n🎉 Analysis Complete! 🎉")
+    print("\n--- Analysis Pipeline Complete ---")
 
 
 if __name__ == '__main__':

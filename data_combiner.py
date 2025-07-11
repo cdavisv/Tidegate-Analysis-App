@@ -1,51 +1,58 @@
 # data_combiner.py
 
 import pandas as pd
+import numpy as np
 
-def combine_data(camera_df, water_df, method='linear', limit_direction='both', water_interpolation_tolerance='30 minutes'):
+def combine_data(camera_df, water_df, max_interp_hours=3):
     """
-    Combines camera and water quality data using a robust merge and interpolation process.
-
-    Args:
-        camera_df (pd.DataFrame): DataFrame with camera data and 'DateTime' column.
-        water_df (pd.DataFrame): DataFrame with water data and a 'DateTime' index.
-        method (str): Interpolation method ('linear', 'time', etc.).
-        limit_direction (str): Direction for filling NaNs.
-        water_interpolation_tolerance (str): Max time gap for interpolation.
-
-    Returns:
-        pd.DataFrame: A unified time series DataFrame.
+    Combines, aggregates, and interpolates camera and water data.
     """
-    print("\n--- Combining Data using Robust Merge and Smart Interpolation ---")
+    print("\n--- Combining Data ---")
 
-    cam = camera_df.copy()
-    wat = water_df.copy()
+    combined_df = pd.merge(
+        water_df,
+        camera_df,
+        left_index=True,
+        right_on='DateTime',
+        how='outer'
+    ).sort_values(by='DateTime')
 
-    # Ensure DateTime types are consistent
-    cam['DateTime'] = pd.to_datetime(cam['DateTime'])
-    if not isinstance(wat.index, pd.DatetimeIndex):
-        if 'DateTime' in wat.columns:
-            wat['DateTime'] = pd.to_datetime(wat['DateTime'])
-            wat.set_index('DateTime', inplace=True)
-        else:
-            raise ValueError("Water DataFrame must have a 'DateTime' index or column.")
+    if combined_df.empty:
+        print("Combined DataFrame is empty after merge.")
+        return combined_df
 
-    # --- CORRECTED LINE ---
-    # Create a pandas Index from the camera's DateTime Series before using .union()
-    camera_index = pd.Index(cam['DateTime'])
-    combined_index = camera_index.union(wat.index).unique().sort_values()
-    # --- END CORRECTION ---
+    # FIX: Create the 'has_camera_data' helper column BEFORE aggregation.
+    combined_df['has_camera_data'] = combined_df['Species'].notna()
 
-    # Reindex water data to the full timeline to create gaps, then interpolate
-    water_timeline_df = wat.reindex(combined_index).interpolate(
-        method=method,
-        limit_direction=limit_direction,
-        limit_area='inside'
-    ).reset_index().rename(columns={'index': 'DateTime'})
+    # --- Aggregate Duplicate Timestamps ---
+    agg_rules = {col: 'first' for col in combined_df.columns if col != 'DateTime'}
+    agg_rules['Species'] = lambda s: ', '.join(s.dropna().unique())
+    agg_rules['Count'] = 'sum'
+    agg_rules['Activity'] = lambda s: ', '.join(s.dropna().unique())
+    # Add a rule to correctly aggregate the new helper column.
+    agg_rules['has_camera_data'] = 'max'
+    
+    combined_df = combined_df.groupby('DateTime').agg(agg_rules).reset_index()
 
-    # Merge the interpolated water timeline with the camera data
-    final_df = pd.merge(water_timeline_df, cam, on='DateTime', how='left')
-    final_df['has_camera_data'] = final_df['Species'].notna()
+    # --- Time-Aware Interpolation ---
+    combined_df.set_index('DateTime', inplace=True)
+    original_index = combined_df.index
 
-    print(f"--- Combination Complete. Final dataset has {len(final_df)} rows. ---")
-    return final_df
+    upsampled_df = combined_df.resample('1min').asfreq()
+    limit_in_minutes = max_interp_hours * 60
+
+    numeric_cols = upsampled_df.select_dtypes(include=np.number).columns
+    upsampled_df[numeric_cols] = upsampled_df[numeric_cols].interpolate(
+        method='time',
+        limit=limit_in_minutes,
+        limit_direction='both'
+    )
+
+    combined_df = upsampled_df.reindex(original_index).reset_index()
+
+    # The 'has_camera_data' column is now created before aggregation, so this line is no longer needed.
+    # combined_df['has_camera_data'] = combined_df['Species'].notna() 
+    
+    print(f"--- Combination and Interpolation Complete. Final dataset has {len(combined_df)} rows. ---")
+    
+    return combined_df
