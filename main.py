@@ -10,7 +10,7 @@ import visualization
 
 # --- CONFIGURATION ---
 # Use this variable to control the maximum time gap (in hours) to fill with interpolation.
-MAX_INTERPOLATION_HOURS = 3  # <-- CHANGE THIS VALUE
+MAX_INTERPOLATION_HOURS = .25  # <-- CHANGE THIS VALUE
 
 # Define the file paths for your data files.
 # TODO: Update these paths to point to your actual data files.
@@ -44,6 +44,9 @@ def main():
     if combined_df.empty:
         print("\nCombined DataFrame is empty. Cannot proceed with analysis. Exiting.")
         return
+    
+    combined_df.to_csv('combined_data_output.csv', index=False)
+    print("\n -> Successfully saved the combined DataFrame to 'combined_data_output.csv'")
 
     # 3. Perform Analyses
     # Each analysis module processes the combined data to extract insights.
@@ -70,6 +73,16 @@ def main():
         print("\nSkipping bird behavior plots: No summary data was generated.")
 
     visualization.create_safe_water_visualizations(combined_df)
+
+    gate_analysis_df = pd.DataFrame({
+    'Detection_Rate_Pct': [10, 25, 60]
+    }, index=['Closed', 'Partially Open', 'Fully Open'])
+
+
+    # --- ADD THIS LINE TO EXECUTE THE PLOT ---
+    # This tells your program to actually run the function from your visualization file
+    visualization.plot_gate_analysis(gate_analysis_df)
+
 
     print("\n--- Analysis Pipeline Complete ---")
 

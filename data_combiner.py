@@ -39,7 +39,7 @@ def combine_data(camera_df, water_df, max_interp_hours=3):
     original_index = combined_df.index
 
     upsampled_df = combined_df.resample('1min').asfreq()
-    limit_in_minutes = max_interp_hours * 60
+    limit_in_minutes = int(max_interp_hours * 60)
 
     numeric_cols = upsampled_df.select_dtypes(include=np.number).columns
     upsampled_df[numeric_cols] = upsampled_df[numeric_cols].interpolate(

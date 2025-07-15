@@ -45,7 +45,7 @@ def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
             labels={'x': 'MTR Gate State', 'y': 'Detection Rate (%)'},
             color='Detection_Rate_Pct', color_continuous_scale='Viridis'
         )
-        fig_gate_mtr.show()
+        #fig_gate_mtr.show()
         save_plot(fig_gate_mtr, "2a_mtr_gate_detection_rate") # <-- ADDED
 
     if hinge_gate_df is not None and not hinge_gate_df.empty:
@@ -56,7 +56,7 @@ def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
             labels={'x': 'Top Hinge Gate State', 'y': 'Detection Rate (%)'},
             color='Detection_Rate_Pct', color_continuous_scale='Plasma'
         )
-        fig_gate_hinge.show()
+        #fig_gate_hinge.show()
         save_plot(fig_gate_hinge, "2b_hinge_gate_detection_rate") # <-- ADDED
     
     if tidal_df is not None and not tidal_df.empty:
@@ -66,7 +66,7 @@ def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
             title='Detection Rate by Tidal Level',
             labels={'x': 'Tidal Level', 'y': 'Detection Rate (%)'}
         )
-        fig_tidal.show()
+        #fig_tidal.show()
         save_plot(fig_tidal, "2c_tidal_level_detection_rate") # <-- ADDED
 
         
@@ -99,7 +99,8 @@ def create_safe_water_visualizations(df, title_suffix=""):
         fig = px.line(df, x='DateTime', y=param, title=label, labels={'y': label}, markers=True)
         # --- END MODIFICATION ---
         fig.update_traces(line_color=color, line_width=1.5, marker=dict(size=4))
-        fig.show()
+        #fig.show()
+        save_plot(fig, f"3_water_quality_{param}{title_suffix}")
 
 
 def create_analysis_plots(df_combined, species_df):
@@ -117,7 +118,8 @@ def create_analysis_plots(df_combined, species_df):
         print(" -> Plotting: Top 10 Species by Detection Events")
         top_species = species_df['Species'].value_counts().nlargest(10)
         fig_species = px.bar(top_species, x=top_species.index, y=top_species.values, title='Top 10 Species by Detection Events', labels={'y': 'Number of Detections', 'x': 'Species'})
-        fig_species.show()
+        #fig_species.show()
+        save_plot(fig_species, "4a_top_10_species_events")
     
     # Plot 2: Water Quality Correlation Matrix
     wq_corr_cols = [col for col in ['Water_Temp_C', 'pH', 'DO_mgL', 'Salinity_psu', 'Turbidity_NTU', 'Depth'] if col in df_combined.columns]
@@ -125,7 +127,8 @@ def create_analysis_plots(df_combined, species_df):
         print(" -> Plotting: Water Quality Correlation Matrix")
         corr_matrix = df_combined[wq_corr_cols].corr()
         fig_corr = px.imshow(corr_matrix, text_auto=True, title='Water Quality Correlation Matrix', aspect="auto")
-        fig_corr.show()
+        #fig_corr.show()
+        save_plot(fig_corr, "4b_water_quality_correlation")
 
 def plot_gate_analysis(gate_analysis_df):
     """Visualizes detection rates by tide gate state."""
@@ -138,7 +141,8 @@ def plot_gate_analysis(gate_analysis_df):
         color='Detection_Rate_Pct',
         color_continuous_scale='Viridis'
     )
-    fig.show()
+    #fig.show()
+    save_plot(fig, "2_gate_analysis_detection_rate")
 
 
 
@@ -164,7 +168,8 @@ def plot_bird_analysis(summary_table, combined_df):
             title="<b>Bird Detection Rate (%) by Gate Status and Tidal Flow</b>"
         )
         fig_heatmap.update_xaxes(side="top")
-        fig_heatmap.show()
+        #fig_heatmap.show()
+        save_plot(fig_heatmap, "5a_bird_detection_heatmap")
 
     # --- Plot 2: Granular Scatter Plot ---
     # This plot shows every single water measurement. Points are colored if a bird was
@@ -195,8 +200,8 @@ def plot_bird_analysis(summary_table, combined_df):
         # Add lines to indicate rising/falling tide and open/closed gate
         fig_scatter.add_hline(y=0, line_dash="dash", annotation_text="Slack Tide")
         fig_scatter.add_vline(x=5, line_dash="dash", annotation_text="Gate Closed")
-        fig_scatter.show()
-
+        #fig_scatter.show()
+        save_plot(fig_scatter, "5b_bird_detection_scatter")
 
 def plot_species_analysis(species_summary_df):
     """
@@ -220,5 +225,5 @@ def plot_species_analysis(species_summary_df):
             hover_data={'Detection_Events': True, 'Total_Count': True}
         )
         
-        fig.show() # <-- Still shows the interactive plot
+        #fig.show() # <-- Still shows the interactive plot
         save_plot(fig, "1_species_summary") # <-- ADDED: Saves the plot to files
