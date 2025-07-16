@@ -6,6 +6,7 @@ import data_combiner
 import species_analysis
 import environmental_analysis
 import bird_tide_analysis
+import gate_combination_analysis
 import visualization
 
 # --- CONFIGURATION ---
@@ -54,6 +55,9 @@ def main():
     mtr_gate_analysis, hinge_gate_analysis, tidal_analysis, temp_analysis = environmental_analysis.analyze_environmental_factors(combined_df)
     bird_summary_table = bird_tide_analysis.analyze_bird_tide_gate_behavior(combined_df)
 
+    # --- This now calls the new, advanced gate combination analysis ---
+    gate_combination_analysis.run_gate_combination_analysis(combined_df)
+    # ---
     
     # 4. Generate Visualizations
     # The visualization module takes the results of the analyses
@@ -74,16 +78,9 @@ def main():
 
     visualization.create_safe_water_visualizations(combined_df)
 
-    gate_analysis_df = pd.DataFrame({
-    'Detection_Rate_Pct': [10, 25, 60]
-    }, index=['Closed', 'Partially Open', 'Fully Open'])
 
-
-    # --- ADD THIS LINE TO EXECUTE THE PLOT ---
-    # This tells your program to actually run the function from your visualization file
-    visualization.plot_gate_analysis(gate_analysis_df)
-
-
+ # --- ADD THIS LINE TO EXECUTE THE NEW HYPOTHESIS VISUALIZATIONS ---
+    visualization.create_hypothesis_visualizations(combined_df)
     print("\n--- Analysis Pipeline Complete ---")
 
 

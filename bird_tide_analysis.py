@@ -109,14 +109,5 @@ def analyze_bird_tide_gate_behavior(combined_df):
         combined_df['Gate_Opening_Top_Hinge_Deg_category'] = pd.cut(combined_df[hinge_gate_col], bins=hinge_bins, labels=hinge_labels, right=False)
         _create_and_print_summary(combined_df, 'Gate_Opening_Top_Hinge_Deg_category', "Top Hinge Gate")
     
-    # Analysis 3: Combined Gate (A simplified Open vs. Closed view based on the MTR gate)
-    if mtr_gate_col in combined_df.columns:
-        combined_df['combined_gate_status'] = np.where(
-            combined_df[mtr_gate_col] == 'Closed (0-5°)', 
-            'Gate Closed', 
-            'Gate Open'
-        )
-        _create_and_print_summary(combined_df, 'combined_gate_status', "Combined Gate")
-
     # Return the primary MTR gate table to maintain compatibility with downstream plotting functions
     return mtr_summary_table

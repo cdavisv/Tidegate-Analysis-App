@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
+import numpy as np
 import os
 
 
@@ -227,3 +228,115 @@ def plot_species_analysis(species_summary_df):
         
         #fig.show() # <-- Still shows the interactive plot
         save_plot(fig, "1_species_summary") # <-- ADDED: Saves the plot to files
+
+def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
+    """
+    Helper function to generate and save a stylized plot of the tide cycle
+    highlighting the point of peak bird activity.
+    """
+    # 1. Create data for a generic tide cycle (sine wave)
+    time = np.linspace(0, 12, 300)
+    depth = np.sin(time * np.pi / 6 - np.pi / 2) # Shifted to start at low tide
+
+    # 2. Setup the plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(time, depth, color='skyblue', linewidth=2)
+    ax.fill_between(time, depth, -1, color='skyblue', alpha=0.3)
+
+    # 3. Define positions for annotations
+    positions = {
+        'Low Slack': (0, -1),
+        'Rising': (3, 0),
+        'High Slack': (6, 1),
+        'Falling': (9, 0)
+    }
+
+    # Add text labels for each phase of the tide
+    for state, (t, d) in positions.items():
+        ax.text(t, d + 0.15 if d >= 0 else d - 0.2, state, ha='center', fontsize=12, weight='bold')
+
+    # 4. Highlight the peak activity point
+    if peak_tidal_state in positions:
+        peak_time, peak_depth = positions[peak_tidal_state]
+
+        # Place a star icon at the peak location
+        ax.plot(peak_time, peak_depth, '*', markersize=20, color='gold', markeredgecolor='black')
+
+        # Add an annotation with details about the peak
+        ax.annotate(
+            f"Peak Activity:\n{peak_gate_state}",
+            xy=(peak_time, peak_depth),
+            xytext=(peak_time, peak_depth + 0.5),
+            ha='center',
+            fontsize=11,
+            arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=8),
+            bbox=dict(boxstyle="round,pad=0.5", fc="gold", ec="black", lw=1, alpha=0.8)
+        )
+
+    # 5. Finalize and save the plot
+    ax.set_title(f"Peak Bird Activity Condition: {title}", fontsize=16, weight='bold')
+    ax.set_xlabel("Tidal Cycle (~12 hours)")
+    ax.set_ylabel("Relative Water Level")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_ylim(-1.5, 2.0)
+    sns.despine(left=True, bottom=True)
+    plt.tight_layout()
+
+    # Save the figure with a descriptive name
+    filename = f"hypothesis_visualization_{title.replace(' ', '_')}.png"
+    plt.savefig(filename)
+    print(f" -> Saved hypothesis visualization to '{filename}'")
+    plt.close()
+
+
+def create_hypothesis_visualizations(df):
+    """
+    Generates and saves visualizations for each of the HYPOTHESIS TEST outputs,
+    showing where peak bird activity occurs in the tidal cycle.
+    """
+    print("\n\n--- Generating Hypothesis Visualizations ---")
+    if 'detailed_tidal_flow' not in df.columns or 'is_bird_detection' not in df.columns:
+        print(" -> Skipping hypothesis visualizations: Required columns not found.")
+        return
+
+    # Define the analyses to visualize
+    analyses = {
+        "MTR Gate": "Gate_Opening_MTR_Deg_category",
+        "Top Hinge Gate": "Gate_Opening_Top_Hinge_Deg_category",
+        "Combined Gate (Simple)": "simple_gate_category",
+        "Combined Gate (Specific Combos)": "specific_gate_combo"
+    }
+
+    for title, gate_col in analyses.items():
+        if gate_col not in df.columns:
+            print(f" -> Skipping '{title}' visualization: Column '{gate_col}' not found.")
+            continue
+
+        # Perform the analysis to find the peak condition
+        summary_table = (
+            df.groupby([gate_col, 'detailed_tidal_flow'])['is_bird_detection']
+            .mean()
+            .unstack()
+            .fillna(0)
+        )
+
+        if summary_table.empty:
+            continue
+
+        # Find the peak gate state and tidal state
+        peak_gate_state = summary_table.max(axis=1).idxmax()
+        peak_tidal_state = summary_table.max(axis=0).idxmax()
+
+        # For the 'Specific Combos' analysis, provide a cleaner label if it's an 'Other' sub-category
+        if title == "Combined Gate (Specific Combos)" and peak_gate_state == 'Other':
+             # Re-run logic to find the specific sub-combination driving the 'Other' peak
+            other_df = df[
+                (df[gate_col] == 'Other') & (df['detailed_tidal_flow'] == peak_tidal_state)
+            ]
+            if not other_df.empty:
+                top_combo = other_df.groupby(['MTR_category', 'Hinge_category'])['is_bird_detection'].mean().idxmax()
+                peak_gate_state = f"MTR: {top_combo[0]}\n& Hinge: {top_combo[1]}"
+
+
+        _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state)
