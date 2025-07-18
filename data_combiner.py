@@ -5,119 +5,80 @@ import numpy as np
 
 def combine_data(camera_df, water_df, max_interp_hours=3):
     """
-    Combines, aggregates, and interpolates camera and water data.
-    Modified to preserve multiple species entries at the same timestamp.
+    Combines camera and water data by creating a unified timeline,
+    interpolating the water data, and then merging it with the camera observations.
+    This version handles duplicate timestamps and preserves the index name.
     """
-    print("\n--- Combining Data ---")
+    print("\n--- Combining Data (Robust Method) ---")
 
-    # First, let's see what we're working with
-    print(f"Camera data shape before merge: {camera_df.shape}")
-    print(f"Water data shape before merge: {water_df.shape}")
+    # --- 1. Preparation ---
+    if 'DateTime' not in water_df.columns:
+        water_df = water_df.reset_index()
+
+    camera_df['DateTime'] = pd.to_datetime(camera_df['DateTime'])
+    water_df['DateTime'] = pd.to_datetime(water_df['DateTime'])
     
-    # Check for duplicate timestamps with different species
-    if 'DateTime' in camera_df.columns:
-        dup_times = camera_df[camera_df.duplicated(subset=['DateTime'], keep=False)]
-        if not dup_times.empty:
-            print(f"Found {len(dup_times)} camera records with duplicate timestamps (multiple species)")
+    print(f"Camera data shape: {camera_df.shape}")
+    print(f"Initial water data shape: {water_df.shape}")
+    print(f"Water data columns available: {list(water_df.columns)}")
 
-    # Merge the dataframes
+    # --- 2. Create Unified Timeline & Interpolate Water Data ---
+    print("Handling potential duplicate timestamps in water data by averaging...")
+    water_indexed = water_df.groupby('DateTime').mean(numeric_only=True)
+    print(f"Water data shape after removing duplicates: {water_indexed.shape}")
+
+    numeric_water_cols = water_indexed.select_dtypes(include=np.number).columns.tolist()
+    
+    print(f"Found the following numeric columns for interpolation: {numeric_water_cols}")
+    
+    if 'Depth' in numeric_water_cols:
+        print("  ✅ 'Depth' correctly identified as numeric.")
+    if 'Depth_Inside' in numeric_water_cols:
+        print("  ✅ 'Depth_Inside' correctly identified as numeric.")
+
+    all_timestamps = pd.concat([
+        camera_df['DateTime'],
+        water_indexed.index.to_series()
+    ]).unique()
+    
+    timeline_df = pd.DataFrame(index=pd.to_datetime(all_timestamps)).sort_index()
+
+    # --- FIX START ---
+    # The KeyError occurs because the reindex operation can cause the index to lose its name.
+    # We explicitly set the index name here to ensure that when we call reset_index() later,
+    # it creates a column named 'DateTime' instead of 'index'.
+    timeline_df.index.name = 'DateTime'
+    # --- FIX END ---
+
+    interpolated_water = water_indexed.reindex(timeline_df.index)
+
+    if numeric_water_cols and max_interp_hours > 0:
+        limit_minutes = int(max_interp_hours * 60)
+        interpolated_water[numeric_water_cols] = interpolated_water[numeric_water_cols].interpolate(
+            method='time', limit=limit_minutes, limit_direction='both'
+        )
+        print(f"Interpolation performed with a time limit of {limit_minutes} minutes.")
+    
+    interpolated_water = interpolated_water.reset_index()
+
+    # --- 3. Final Merge ---
+    # This merge will now succeed because interpolated_water is guaranteed to have a 'DateTime' column.
     combined_df = pd.merge(
-        water_df,
         camera_df,
-        left_index=True,
-        right_on='DateTime',
+        interpolated_water,
+        on='DateTime',
         how='outer'
-    ).sort_values(by='DateTime')
+    ).sort_values('DateTime').reset_index(drop=True)
 
-    if combined_df.empty:
-        print("Combined DataFrame is empty after merge.")
-        return combined_df
-
-    # Create the 'has_camera_data' helper column BEFORE aggregation
+    # --- 4. Final Processing ---
     combined_df['has_camera_data'] = combined_df['Species'].notna()
 
-    # --- MODIFIED AGGREGATION APPROACH ---
-    # Instead of aggregating all duplicate timestamps, we need to be more careful
-    # to preserve multiple species at the same timestamp
-    
-    # First, identify which columns should be aggregated vs preserved
-    water_columns = [col for col in water_df.columns if col in combined_df.columns]
-    camera_specific_columns = ['Species', 'Count', 'Distance', 'Activity']
-    
-    # Create a unique identifier for each camera observation
-    # This ensures that multiple species at the same time remain separate
-    combined_df['obs_id'] = combined_df.groupby(['DateTime', 'Species']).ngroup()
-    
-    # For water data columns, we want to forward-fill within each timestamp group
-    # This ensures all species at a given timestamp get the same water data
-    for col in water_columns:
-        if col in combined_df.columns:
-            combined_df[col] = combined_df.groupby('DateTime')[col].transform('first')
-    
-    # Now we can keep all rows without aggressive aggregation
-    # Just remove true duplicates (same time, same species)
-    combined_df = combined_df.drop_duplicates(subset=['DateTime', 'Species'])
-    
-    # Drop the temporary obs_id column
-    combined_df = combined_df.drop(columns=['obs_id'])
-
-    # --- Time-Aware Interpolation ---
-    # We need a different approach since we have duplicate timestamps
-    # First, save the complete data with duplicates
-    complete_df = combined_df.copy()
-    
-    # For interpolation, we'll work with unique timestamps only
-    # Get water data columns to interpolate
-    water_columns = [col for col in water_df.columns if col in combined_df.columns]
-    numeric_water_cols = [col for col in water_columns if col in combined_df.select_dtypes(include=np.number).columns]
-    
-    # Create a temporary dataframe with unique timestamps for interpolation
-    unique_time_df = combined_df[['DateTime'] + numeric_water_cols].drop_duplicates(subset=['DateTime'])
-    unique_time_df.set_index('DateTime', inplace=True)
-    
-    # Perform interpolation on the unique timestamp data
-    if len(numeric_water_cols) > 0 and max_interp_hours > 0:
-        # Upsample to minute frequency
-        upsampled_df = unique_time_df.resample('1min').asfreq()
-        limit_in_minutes = int(max_interp_hours * 60)
-        
-        # Interpolate the water data
-        upsampled_df[numeric_water_cols] = upsampled_df[numeric_water_cols].interpolate(
-            method='time',
-            limit=limit_in_minutes,
-            limit_direction='both'
-        )
-        
-        # Return to original timestamps
-        interpolated_df = upsampled_df.reindex(unique_time_df.index).reset_index()
-        
-        # Merge the interpolated water data back with the complete data
-        # First, drop the old water columns from complete_df
-        complete_df = complete_df.drop(columns=numeric_water_cols, errors='ignore')
-        
-        # Then merge with the interpolated data
-        combined_df = pd.merge(
-            complete_df,
-            interpolated_df,
-            on='DateTime',
-            how='left'
-        )
-    else:
-        combined_df = complete_df
-
-    # Update has_camera_data after interpolation
-    combined_df['has_camera_data'] = combined_df['Species'].notna()
-    
-    print(f"--- Combination and Interpolation Complete ---")
-    print(f"Final dataset has {len(combined_df)} rows")
+    print(f"\n--- Combination and Interpolation Complete ---")
+    print(f"Final dataset has {len(combined_df)} rows.")
     print(f"Unique timestamps: {combined_df['DateTime'].nunique()}")
     print(f"Rows with camera data: {combined_df['has_camera_data'].sum()}")
-    
-    # Show a sample of rows with multiple species at same timestamp
-    multi_species_times = combined_df[combined_df.duplicated(subset=['DateTime'], keep=False)]
-    if not multi_species_times.empty:
-        print(f"\nExample of multiple species at same timestamp:")
-        sample_time = multi_species_times['DateTime'].iloc[0]
-        print(combined_df[combined_df['DateTime'] == sample_time][['DateTime', 'Species', 'Count']].head())
-    
+    print(f"Null values in 'Depth' after process: {combined_df['Depth'].isnull().sum()}")
+    print(f"Null values in 'Depth_Inside' after process: {combined_df['Depth_Inside'].isnull().sum()}")
+
+
     return combined_df

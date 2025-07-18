@@ -7,6 +7,7 @@ import species_analysis
 import environmental_analysis
 import bird_tide_analysis
 import gate_combination_analysis
+import tide_cycle_analysis # <-- IMPORT THE NEW MODULE
 import visualization
 
 # --- CONFIGURATION ---
@@ -15,8 +16,8 @@ MAX_INTERPOLATION_HOURS = .25  # <-- CHANGE THIS VALUE
 
 # Define the file paths for your data files.
 # TODO: Update these paths to point to your actual data files.
-CAMERA_DATA_PATH = 'willanch_camera_final.csv'
-WATER_DATA_PATH = 'willanch_sensor_final.csv'
+CAMERA_DATA_PATH = 'Palouse Combined Camera Imageset_final.csv'
+WATER_DATA_PATH = 'Palouse_Tide_Data_Combined_newest.csv'
 
 
 def main():
@@ -27,15 +28,10 @@ def main():
     print("--- Starting Analysis Pipeline ---")
 
     # 1. Load and Prepare Data
-    # These functions load the raw camera and water data from CSVs and
-    # standardize the formats and column names.
     camera_df = data_loader.load_and_prepare_camera_data(CAMERA_DATA_PATH)
     water_df = data_loader.load_and_prepare_water_data(WATER_DATA_PATH)
 
     # 2. Combine and Interpolate Data
-    # This function merges the two datasets by their timestamps and fills
-    # missing water data points using a time-aware interpolation method,
-    # limited by the MAX_INTERPOLATION_HOURS variable.
     combined_df = data_combiner.combine_data(
         camera_df,
         water_df,
@@ -50,18 +46,18 @@ def main():
     print("\n -> Successfully saved the combined DataFrame to 'combined_data_output.csv'")
 
     # 3. Perform Analyses
-    # Each analysis module processes the combined data to extract insights.
     species_summary, species_df = species_analysis.analyze_species_diversity(combined_df)
     mtr_gate_analysis, hinge_gate_analysis, tidal_analysis, temp_analysis = environmental_analysis.analyze_environmental_factors(combined_df)
     bird_summary_table = bird_tide_analysis.analyze_bird_tide_gate_behavior(combined_df)
-
-    # --- This now calls the new, advanced gate combination analysis ---
     gate_combination_analysis.run_gate_combination_analysis(combined_df)
-    # ---
-    
+
+    # --- NEW ANALYSIS STEP ---
+    # Run the tide cycle analysis, which returns multiple results
+    tide_cycle_df, detection_by_tide, phase_detection = tide_cycle_analysis.analyze_tide_cycle_detections(combined_df)
+    species_tide_table = tide_cycle_analysis.analyze_species_tide_preferences(tide_cycle_df)
+    # --- END NEW ANALYSIS ---
+
     # 4. Generate Visualizations
-    # The visualization module takes the results of the analyses
-    # and generates plots and graphs.
     print("\n\n--- Generating All Visualizations ---")
     visualization.plot_species_analysis(species_summary)
     visualization.plot_environmental_factors(
@@ -77,10 +73,14 @@ def main():
         print("\nSkipping bird behavior plots: No summary data was generated.")
 
     visualization.create_safe_water_visualizations(combined_df)
-
-
- # --- ADD THIS LINE TO EXECUTE THE NEW HYPOTHESIS VISUALIZATIONS ---
     visualization.create_hypothesis_visualizations(combined_df)
+
+    # --- NEW VISUALIZATION STEP ---
+    # Bundle the tide analysis results and pass them to the new visualization function
+    tide_viz_results = (detection_by_tide, phase_detection, species_tide_table)
+    visualization.create_tide_cycle_visualizations(tide_cycle_df, tide_viz_results)
+    # --- END NEW VISUALIZATION ---
+
     print("\n--- Analysis Pipeline Complete ---")
 
 

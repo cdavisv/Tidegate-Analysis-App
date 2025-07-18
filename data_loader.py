@@ -93,6 +93,77 @@ def load_and_prepare_camera_data(file_id):
         print("ERROR: Processed dataframe is empty!")
         return processed_df
     
+    # Standardize species names to fix capitalization inconsistencies
+    print("\n--- Standardizing Species Names ---")
+    if 'Species' in processed_df.columns:
+        # First, let's see what we're working with
+        original_unique = processed_df['Species'].nunique()
+        
+        # Standardize the species names:
+        # 1. Strip leading/trailing whitespace
+        # 2. Replace multiple spaces with single space
+        # 3. Handle case normalization carefully
+        processed_df['Species'] = processed_df['Species'].str.strip()
+        processed_df['Species'] = processed_df['Species'].str.replace(r'\s+', ' ', regex=True)
+        
+        # Create a standardized mapping based on lowercase comparison
+        # This will help us identify and merge duplicates
+        species_lower_map = {}
+        for species in processed_df['Species'].dropna().unique():
+            species_lower = species.lower()
+            if species_lower not in species_lower_map:
+                # First occurrence sets the standard
+                species_lower_map[species_lower] = species
+            else:
+                # If we already have this species (in lowercase), use the existing standard
+                print(f"  Found duplicate: '{species}' will be merged with '{species_lower_map[species_lower]}'")
+        
+        # Apply the standardization
+        processed_df['Species'] = processed_df['Species'].str.lower().map(species_lower_map).fillna(processed_df['Species'])
+        
+        # Now apply proper capitalization for scientific names
+        # Most scientific names should have first letter capitalized for genus, lowercase for species
+        def standardize_scientific_name(name):
+            if pd.isna(name):
+                return name
+            
+            # Special cases that should remain as-is
+            special_cases = {
+                'unknown': 'Unknown',
+                'no_animals_detected': 'No_Animals_Detected',
+                'anatidae': 'Anatidae',  # Family names stay capitalized
+                'phalacrocoracidae': 'Phalacrocoracidae',
+                'corvidae': 'Corvidae'
+            }
+            
+            name_lower = name.lower()
+            if name_lower in special_cases:
+                return special_cases[name_lower]
+            
+            # For binomial names (genus + species)
+            parts = name.split()
+            if len(parts) == 2:
+                # Capitalize genus, lowercase species epithet
+                return f"{parts[0].capitalize()} {parts[1].lower()}"
+            elif len(parts) == 1:
+                # Single word - likely genus or common name
+                return parts[0].capitalize()
+            else:
+                # For anything else, just title case
+                return name.title()
+        
+        processed_df['Species'] = processed_df['Species'].apply(standardize_scientific_name)
+        
+        new_unique = processed_df['Species'].nunique()
+        print(f"Species names before standardization: {original_unique}")
+        print(f"Species names after standardization: {new_unique}")
+        print(f"Merged {original_unique - new_unique} duplicate species names")
+        
+        # Show the standardized species list
+        species_counts = processed_df['Species'].value_counts()
+        print("\nTop species after standardization:")
+        print(species_counts.head(10))
+    
     # Convert DateTime to proper format
     processed_df['DateTime'] = pd.to_datetime(processed_df['DateTime'])
     
@@ -117,34 +188,72 @@ def load_and_prepare_camera_data(file_id):
 def load_and_prepare_water_data(file_id):
     """
     Loads water sensor data and standardizes column names.
+    This updated version ensures all key measurement columns are converted
+    to a numeric type for successful interpolation and treats zeros as missing values.
     """
     print("\n--- Loading Water Quality Data ---")
     df = pd.read_csv(file_id)
 
-    # Print columns for debugging
-    print(f"Water data columns: {list(df.columns)}")
+    print(f"Original water data columns: {list(df.columns)}")
 
-    # Combine date and time columns
+    # Combine date and time columns into a single DateTime object
     df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
     df.drop(columns=['Date', 'Time'], inplace=True)
 
-    # Rename columns to standardized names
+    # --- MODIFICATION START ---
+
+    # Standardize column names. ADDED 'Tidal Level Inside Tidegate [m]'
     rename_map = {
         'Tidal Level Outside Tidegate [m]': 'Depth',
+        'Tidal Level Inside Tidegate [m]': 'Depth_Inside',
         'Air Temp [C]': 'Air_Temp_C',
         'Gate Opening MTR [Degrees]': 'Gate_Opening_MTR_Deg',
         'Gate Opening Top Hinge [Degrees]': 'Gate_Opening_Top_Hinge_Deg',
         'Wind Speed [km/h]': 'Wind_Speed_km_h',
-        # Add any other column mappings here as needed
     }
     
-    # Only rename columns that actually exist
-    rename_map_filtered = {k: v for k, v in rename_map.items() if k in df.columns}
-    df.rename(columns=rename_map_filtered, inplace=True)
+    # Rename only the columns that are present in the dataframe
+    df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns}, inplace=True)
+
+    # Define all columns that should be numeric for analysis and interpolation
+    numeric_cols = [
+        'Depth', 'Depth_Inside', 'Air_Temp_C', 'Gate_Opening_MTR_Deg',
+        'Gate_Opening_Top_Hinge_Deg', 'Wind_Speed_km_h'
+    ]
+
+    # Forcefully convert these columns to numeric type.
+    # Any values that cannot be converted (e.g., '---', 'Error') will become NaN.
+    print("\nEnsuring data columns are numeric for interpolation...")
+    for col in numeric_cols:
+        if col in df.columns:
+            original_nulls = df[col].isnull().sum()
+            # Convert to numeric
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # CRITICAL: Replace zeros with NaN for tidal level columns
+            if col in ['Depth', 'Depth_Inside']:
+                zero_count = (df[col] == 0).sum()
+                df.loc[df[col] == 0, col] = np.nan
+                print(f"  -> Replaced {zero_count} zeros with NaN in '{col}'")
+            
+            new_nulls = df[col].isnull().sum()
+            if (new_nulls > original_nulls):
+                print(f"  -> Converted {new_nulls - original_nulls} non-numeric values to NaN in '{col}'")
+
+    # --- MODIFICATION END ---
     
-    # Set DateTime as index for merging
+    # Set DateTime as the index, which is required for the merging logic
     df.set_index('DateTime', inplace=True)
     
-    print(f"Water data shape: {df.shape}")
+    # Print summary statistics for the depth columns to verify
+    print("\n--- Depth Column Statistics After Processing ---")
+    if 'Depth' in df.columns:
+        print(f"Depth (Outside): Non-null values: {df['Depth'].notna().sum()}, "
+              f"Min: {df['Depth'].min():.2f}, Max: {df['Depth'].max():.2f}")
+    if 'Depth_Inside' in df.columns:
+        print(f"Depth_Inside: Non-null values: {df['Depth_Inside'].notna().sum()}, "
+              f"Min: {df['Depth_Inside'].min():.2f}, Max: {df['Depth_Inside'].max():.2f}")
+    
+    print(f"\nProcessed water data shape: {df.shape}")
     print("--- Water Quality Data Loaded and Standardized ---")
     return df

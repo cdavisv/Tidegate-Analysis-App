@@ -5,6 +5,7 @@ import pandas as pd
 def analyze_species_diversity(camera_df):
     """
     Analyzes the camera dataframe to calculate species diversity metrics.
+    This version ensures proper aggregation of standardized species names.
 
     Args:
         camera_df (pd.DataFrame): The pre-processed camera data.
@@ -26,13 +27,37 @@ def analyze_species_diversity(camera_df):
     print(f"Total animal detections: {len(species_df):,}")
     print(f"Unique species detected: {species_df['Species'].nunique()}")
 
-    species_summary = species_df.groupby('Species').agg(
+    # IMPORTANT: Ensure Count is numeric before aggregation
+    if 'Count' in species_df.columns:
+        species_df['Count'] = pd.to_numeric(species_df['Count'], errors='coerce').fillna(1)
+    else:
+        species_df['Count'] = 1
+
+    # Group by species and aggregate properly
+    species_summary = species_df.groupby('Species', as_index=True).agg(
         Total_Count=('Count', 'sum'),
         Detection_Events=('DateTime', 'count')
     ).sort_values('Total_Count', ascending=False)
 
+    # Convert the index to string to ensure consistent display
+    species_summary.index = species_summary.index.astype(str)
+
     print("\nTop 15 species by total individual count:")
-    print(species_summary.head(15))
+    print(species_summary.head(15).to_string())
+
+    # Additional check for any remaining duplicates
+    print("\n--- Checking for potential remaining duplicates ---")
+    species_list = species_summary.index.tolist()
+    found_duplicates = False
+    
+    for i, sp1 in enumerate(species_list[:20]):  # Check top 20 species
+        for j, sp2 in enumerate(species_list[:20]):
+            if i < j and sp1.lower() == sp2.lower():
+                print(f"WARNING: Found similar species names: '{sp1}' and '{sp2}'")
+                found_duplicates = True
+    
+    if not found_duplicates:
+        print("No duplicate species names found in top 20 species.")
 
     return species_summary, species_df
 

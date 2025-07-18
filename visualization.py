@@ -340,3 +340,78 @@ def create_hypothesis_visualizations(df):
 
 
         _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state)
+
+def create_tide_cycle_visualizations(df, tide_analysis_results):
+    """
+    Creates comprehensive visualizations of animal detections across tidal cycles.
+    """
+    print("\n--- Generating Tide Cycle Visualizations ---")
+
+    # Unpack the results from the analysis step
+    detection_by_tide, phase_detection, species_tide_table = tide_analysis_results
+
+    # Plot 1: Bar chart of detection rate by general tidal state
+    if detection_by_tide is not None and not detection_by_tide.empty:
+        print(" -> Plotting: Detection Rate by Tidal State (Rising, Falling, etc.)")
+        fig_state = px.bar(
+            detection_by_tide,
+            x=detection_by_tide.index,
+            y='detection_rate',
+            title='Detection Rate vs. Tidal State',
+            labels={'x': 'Tidal State', 'detection_rate': 'Detection Rate'},
+            color='detection_rate',
+            color_continuous_scale='Blues'
+        )
+        save_plot(fig_state, "6a_detection_by_tidal_state")
+
+    # Plot 2: Polar chart showing detection rate by the phase of the tide
+    if phase_detection is not None and not phase_detection.empty:
+        print(" -> Plotting: Detection Rate by Tidal Phase (Polar Chart)")
+        
+        # --- START: MODIFIED SECTION ---
+        # Prepare data for plotting
+        plot_data = phase_detection.copy()
+        plot_data['phase_midpoint'] = plot_data.index.str.split('-').str[0].astype(float)
+        plot_data['phase_degrees'] = plot_data['phase_midpoint'] * 360
+
+        # Manually close the loop to avoid the .append error
+        # We do this by concatenating the first row to the end of the DataFrame
+        if not plot_data.empty:
+            plot_data_closed = pd.concat([plot_data, plot_data.iloc[[0]]], ignore_index=True)
+        else:
+            plot_data_closed = plot_data
+
+        fig_polar = px.line_polar(
+            plot_data_closed, # Use the manually closed dataframe
+            r='detection_rate',
+            theta='phase_degrees',
+            # line_close=True, # This argument is removed to prevent the error
+            title='Detection Rate Across the Tidal Cycle',
+            labels={'detection_rate': 'Detection Rate'},
+            template='plotly_dark'
+        )
+        # --- END: MODIFIED SECTION ---
+
+        fig_polar.update_layout(
+            polar=dict(
+                angularaxis=dict(
+                    tickvals=[0, 90, 180, 270],
+                    ticktext=['Low Tide', 'Rising Tide', 'High Tide', 'Falling Tide'],
+                    direction="clockwise"
+                )
+            )
+        )
+        save_plot(fig_polar, "6b_detection_by_tidal_phase")
+
+    # Plot 3: Heatmap of tidal preferences for top species
+    if species_tide_table is not None and not species_tide_table.empty:
+        print(" -> Plotting: Heatmap of Species Tide Preferences")
+        fig_heatmap = px.imshow(
+            species_tide_table,
+            text_auto=".1f",
+            aspect="auto",
+            title='Tidal State Preference by Species (% of Detections)',
+            labels=dict(x="Tidal State", y="Species", color="Detection %"),
+            color_continuous_scale='viridis'
+        )
+        save_plot(fig_heatmap, "6c_species_tide_preference_heatmap")
