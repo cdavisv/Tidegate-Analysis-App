@@ -1,0 +1,16 @@
+Species,Total_Count_Original,Detection_Events_Original,Total_Count_Corrected,Detection_Events_Corrected,Detection_Rate_Pct_Corrected
+Anatidae,226.0,145,226.0,145,35.714285714285715
+Branta Canadensis,180.0,66,180.0,66,16.25615763546798
+Megaceryle Alcyon,92.0,91,92.0,91,22.413793103448278
+Podiceps Grisegena,39.0,21,39.0,21,5.172413793103448
+Ardea,37.0,23,37.0,23,5.665024630541872
+Unknown,19.0,17,19.0,17,4.1871921182266005
+Ardea Alba,14.0,9,14.0,9,2.2167487684729066
+Odocoileus Hemionus Columbianus,14.0,8,14.0,8,1.9704433497536946
+Mergus Merganser,9.0,6,9.0,6,1.477832512315271
+Corvus Brachyrhynchos,6.0,5,6.0,5,1.2315270935960592
+Phalacrocoracidae,5.0,5,5.0,5,1.2315270935960592
+Anas Platyrhynchos,4.0,3,4.0,3,0.7389162561576355
+Cathartes Aura,4.0,4,4.0,4,0.9852216748768473
+Ardea Herodias,2.0,2,2.0,2,0.49261083743842365
+Otter,1.0,1,1.0,1,0.24630541871921183

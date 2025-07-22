@@ -1,259 +1,359 @@
 # data_loader.py
 
 import pandas as pd
-import numpy as np
+
+def find_species_columns(df):
+    """
+    Dynamically and accurately finds all 'Species X' columns in the DataFrame.
+    """
+    species_cols = []
+    for col in df.columns:
+        if col.startswith('Species '):
+            parts = col.split(' ')
+            if len(parts) == 2 and parts[1].isdigit():
+                species_cols.append(col)
+    print(f"Found {len(species_cols)} species columns in the data: {species_cols}")
+    return species_cols
+
+def process_and_combine_species(df, species_cols, base_cols):
+    """
+    Processes each species column using the provided base_cols, combines them 
+    into a single long-format DataFrame, and handles blank species names if a count exists.
+    """
+    all_species_dfs = []
+    
+    print(f"Processing {len(species_cols)} species columns...")
+    print(f"Base columns: {base_cols}")
+
+    # Handle blank species names with counts > 0
+    for i in range(1, len(species_cols) + 1):
+        species_col = f'Species {i}'
+        # Try both possible count column formats
+        count_col = f'Species {i} Count'  # Format: "Species 1 Count"
+        alt_count_col = f'Species Count {i}'  # Format: "Species Count 1"
+        
+        # Use whichever format exists in the DataFrame
+        if count_col in df.columns:
+            actual_count_col = count_col
+        elif alt_count_col in df.columns:
+            actual_count_col = alt_count_col
+        else:
+            actual_count_col = None
+
+        if species_col in df.columns and actual_count_col is not None:
+            # Convert count to numeric and fill NaN with 0
+            df[actual_count_col] = pd.to_numeric(df[actual_count_col], errors='coerce').fillna(0)
+            
+            # Check for blank/empty species names with counts > 0
+            blank_with_count = (df[species_col].isna() | (df[species_col].str.strip() == '')) & (df[actual_count_col] > 0)
+            if blank_with_count.any():
+                df.loc[blank_with_count, species_col] = 'Unknown'
+                print(f"   -> Filled {blank_with_count.sum()} blank species names in {species_col} with 'Unknown'")
+
+    # Process each species column
+    for i in range(1, len(species_cols) + 1):
+        species_col = f'Species {i}'
+        # Try both possible count column formats
+        count_col = f'Species {i} Count'  # Format: "Species 1 Count"
+        alt_count_col = f'Species Count {i}'  # Format: "Species Count 1"
+        notes_col = f'Notes {i}'
+        
+        # Use whichever count format exists in the DataFrame
+        if count_col in df.columns:
+            actual_count_col = count_col
+        elif alt_count_col in df.columns:
+            actual_count_col = alt_count_col
+        else:
+            actual_count_col = None
+        
+        print(f"   -> Processing {species_col}...")
+        
+        if species_col not in df.columns:
+            print(f"      Warning: {species_col} not found in DataFrame")
+            continue
+            
+        if actual_count_col is None:
+            print(f"      Warning: Neither {count_col} nor {alt_count_col} found in DataFrame")
+            # Continue without count column - we'll default to 1
+        
+        # Build list of columns for this species
+        current_species_cols = [species_col]
+        if actual_count_col is not None:
+            current_species_cols.append(actual_count_col)
+        if notes_col in df.columns:
+            current_species_cols.append(notes_col)
+
+        # Create temporary dataframe with base columns + species columns
+        temp_df = df[base_cols + current_species_cols].copy()
+        
+        # Filter out rows where species is null, empty, or whitespace
+        before_filter = len(temp_df)
+        temp_df = temp_df[
+            temp_df[species_col].notna() & 
+            (temp_df[species_col].str.strip() != '')
+        ]
+        after_filter = len(temp_df)
+        
+        print(f"      Rows before filtering: {before_filter}")
+        print(f"      Rows after filtering: {after_filter}")
+        print(f"      Valid species entries: {after_filter}")
+
+        if temp_df.empty:
+            print(f"      No valid entries found in {species_col}")
+            continue
+
+        # Rename columns to standard names
+        rename_dict = {
+            species_col: 'Species'
+        }
+        if actual_count_col is not None:
+            rename_dict[actual_count_col] = 'Count'
+        if notes_col in df.columns:
+            rename_dict[notes_col] = 'Notes'
+        
+        temp_df = temp_df.rename(columns=rename_dict)
+
+        # Add Notes column if it doesn't exist
+        if 'Notes' not in temp_df.columns:
+            temp_df['Notes'] = ''
+
+        # Add Count column with default value of 1 if missing
+        if 'Count' not in temp_df.columns:
+            temp_df['Count'] = 1
+        else:
+            # Ensure Count is numeric and fill NaN with 1
+            temp_df['Count'] = pd.to_numeric(temp_df['Count'], errors='coerce').fillna(1)
+
+        print(f"      Sample species values: {temp_df['Species'].head(3).tolist()}")
+        all_species_dfs.append(temp_df)
+
+    if not all_species_dfs:
+        print("\nERROR: No valid species entries found after processing all columns.")
+        print("This could be because:")
+        print("1. All species columns are empty")
+        print("2. All species values are null/blank")
+        print("3. Column names don't match expected pattern")
+        
+        # Debug: Show sample of actual data
+        print("\nDebugging - Sample of first few rows:")
+        for i in range(1, min(4, len(species_cols) + 1)):
+            species_col = f'Species {i}'
+            if species_col in df.columns:
+                sample_values = df[species_col].head(10).tolist()
+                print(f"   {species_col}: {sample_values}")
+        
+        return pd.DataFrame()
+
+    print(f"\nCombining {len(all_species_dfs)} DataFrames...")
+    combined = pd.concat(all_species_dfs, ignore_index=True)
+    print(f"Final combined DataFrame shape: {combined.shape}")
+    print(f"Unique species found: {combined['Species'].nunique()}")
+    
+    return combined
+
+
+def standardize_species_names(df):
+    """Standardizes species names to correct for typos and variations."""
+    print("\n--- Standardizing Species Names ---")
+    
+    if df.empty:
+        print("DataFrame is empty, skipping standardization.")
+        return df
+    
+    special_cases = {
+        'unknown': 'Unknown', 'brant': 'Branta canadensis', 'canada goose': 'Branta canadensis',
+        'canada geese': 'Branta canadensis', 'cackling goose': 'Branta hutchinsii', 'great egret': 'Ardea alba',
+        'great blue heron': 'Ardea herodias', 'belted kingfisher': 'Megaceryle alcyon',
+        'double-crested cormorant': 'Nannopterum auritus', 'pelagic cormorant': 'Urile pelagicus',
+        'river otter': 'Lontra canadensis', 'columbian black-tailed deer': 'Odocoileus Hemionus Columbianus',
+        'black-tailed deer': 'Odocoileus Hemionus Columbianus', 'turkey vulture': 'Cathartes aura',
+        'red-necked grebe': 'Podiceps grisegena', 'common loon': 'Gavia immer',
+        'common merganser': 'Mergus merganser', 'bufflehead': 'Bucephala albeola',
+        'mallard': 'Anas platyrhynchos', 'american crow': 'Corvus brachyrhynchos',
+        'cormorant': 'Phalacrocoracidae'
+    }
+
+    original_species = df['Species'].unique()
+    print(f"Species names before standardization: {len(original_species)}")
+    
+    mapping = {k.lower().strip(): v for k, v in special_cases.items()}
+    df['Species'] = df['Species'].str.lower().str.strip().map(mapping).fillna(df['Species'].str.strip().str.title())
+    
+    standardized_species = df['Species'].unique()
+    print(f"Species names after standardization: {len(standardized_species)}")
+    
+    merged_count = len(original_species) - len(standardized_species)
+    if merged_count > 0:
+        print(f"Merged {merged_count} duplicate species names")
+        
+    return df
+
+def analyze_multi_species_rows(original_df, expanded_df):
+    """Provides statistics on rows that contained multiple species."""
+    print("\n--- Multi-Species Expansion Statistics ---")
+    
+    if expanded_df.empty:
+        print("Expanded DataFrame is empty, skipping multi-species analysis.")
+        return
+    
+    multi_species_timestamps = expanded_df['DateTime'].value_counts()
+    multi_species_timestamps = multi_species_timestamps[multi_species_timestamps > 1].index
+    
+    if len(multi_species_timestamps) > 0:
+        print(f"Timestamps with multiple species: {len(multi_species_timestamps)}")
+        shared_timestamp_rows = expanded_df[expanded_df['DateTime'].isin(multi_species_timestamps)]
+        print(f"Total rows with shared timestamps: {len(shared_timestamp_rows)}")
+        
+        example_timestamp = multi_species_timestamps[0]
+        print(f"\nExample - Multiple species at {example_timestamp}:")
+        print(expanded_df[expanded_df['DateTime'] == example_timestamp][['DateTime', 'Species', 'Count']])
+    else:
+        print("No instances of multiple species detected in a single timestamp.")
 
 def load_and_prepare_camera_data(file_id):
-    """
-    Loads and processes camera trap data, handling multiple species entries
-    per row and ensuring all related columns are standardized.
-    This version properly expands rows with multiple species into separate rows.
-    """
-    print("--- Loading and Preparing Camera Data ---")
-    df = pd.read_csv(file_id)
+    """Main function to load, process, and standardize camera data."""
+    print("\n--- Loading and Preparing Camera Data ---")
+    try:
+        df = pd.read_csv(file_id, low_memory=False)
+        print(f"Raw camera data shape: {df.shape}")
+        print(f"Column names: {list(df.columns)}")
+    except Exception as e:
+        print(f"Error loading camera data: {e}")
+        return None
+
+    # Handle DateTime column creation
+    if 'DateTime' in df.columns:
+        print("\nFound existing 'DateTime' column.")
+        df['DateTime'] = pd.to_datetime(df['DateTime'], errors='coerce')
+    elif 'Date' in df.columns and 'Time' in df.columns:
+        print("\nFound 'Date' and 'Time' columns. Combining them into 'DateTime'.")
+        try:
+            df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], errors='coerce')
+        except Exception as e:
+            print(f"Error combining 'Date' and 'Time' columns: {e}")
+            return None
+    else:
+        print("\nCRITICAL ERROR: Could not find 'DateTime' column, nor 'Date' and 'Time' columns to create it.")
+        print(f"Available columns: {list(df.columns)}")
+        return None
     
-    print(f"Raw camera data shape: {df.shape}")
+    # Remove rows with invalid DateTime
+    before_datetime_filter = len(df)
+    df = df.dropna(subset=['DateTime'])
+    after_datetime_filter = len(df)
+    print(f"Removed {before_datetime_filter - after_datetime_filter} rows with invalid DateTime")
+    
+    # Define base columns (columns that are not species-specific)
+    base_cols = [col for col in df.columns if not any(sc in col for sc in ['Species', 'Count', 'Notes'])]
+    print(f"\nBase columns (non-species-specific): {len(base_cols)}")
+    print(f"Base columns: {base_cols}")
 
-    # Helper function to correctly process multi-species columns
-    def process_and_combine_species(df_to_process):
-        all_species_dfs = []
-        
-        # Identify base columns (not species-specific)
-        species_pattern_cols = []
-        for i in range(1, 10):  # Check up to Species 9 to be safe
-            species_pattern_cols.extend([
-                f'Species {i}', f'Species {i} Count', 
-                f'Species {i} Distance', f'Species {i} Activity'
-            ])
-        
-        base_cols = [col for col in df_to_process.columns if col not in species_pattern_cols]
-        
-        print(f"Base columns (non-species-specific): {len(base_cols)}")
-        
-        # Process each species column
-        species_found = 0
-        for i in range(1, 10):  # Check up to Species 9
-            species_col = f'Species {i}'
-            if species_col in df_to_process.columns:
-                species_found += 1
-                # Get all related columns for this species number
-                current_species_cols = [
-                    species_col, 
-                    f'Species {i} Count', 
-                    f'Species {i} Distance', 
-                    f'Species {i} Activity'
-                ]
-                
-                # Select base columns plus species-specific columns that exist
-                cols_to_select = base_cols + [col for col in current_species_cols if col in df_to_process.columns]
-                
-                # Create a temporary dataframe for this species
-                temp_df = df_to_process[cols_to_select].copy()
-                
-                # Only keep rows where this species is not null
-                temp_df = temp_df[temp_df[species_col].notna()].copy()
-                
-                if not temp_df.empty:
-                    # Rename the species-specific columns to generic names
-                    rename_dict = {
-                        f'Species {i}': 'Species',
-                        f'Species {i} Count': 'Count',
-                        f'Species {i} Distance': 'Distance',
-                        f'Species {i} Activity': 'Activity'
-                    }
-                    temp_df.rename(columns=rename_dict, inplace=True)
-                    
-                    # Add to our list
-                    all_species_dfs.append(temp_df)
-                    print(f"Species {i}: {len(temp_df)} non-null entries")
-        
-        print(f"Found {species_found} species columns in the data")
-        
-        if not all_species_dfs:
-            print("WARNING: No species data found!")
-            return pd.DataFrame()
-
-        # Concatenate all species dataframes
-        final_df = pd.concat(all_species_dfs, ignore_index=True)
-        
-        # Ensure Count column exists and is numeric
-        if 'Count' not in final_df.columns:
-            final_df['Count'] = 1
-        else:
-            final_df['Count'] = pd.to_numeric(final_df['Count'], errors='coerce').fillna(1).astype(int)
-        
-        print(f"Total rows after expanding multi-species entries: {len(final_df)}")
-        
-        return final_df
-
-    # Process the dataframe to expand multi-species rows
-    processed_df = process_and_combine_species(df)
+    # Find species columns
+    species_cols = find_species_columns(df)
+    
+    if not species_cols:
+        print("No species columns found. Creating a basic DataFrame with 'No_Animals_Detected'.")
+        df['Species'] = 'No_Animals_Detected'
+        df['Count'] = 1
+        df['Notes'] = ''
+        return df[base_cols + ['Species', 'Count', 'Notes']]
+    
+    # Process and combine species data
+    processed_df = process_and_combine_species(df, species_cols, base_cols)
     
     if processed_df.empty:
-        print("ERROR: Processed dataframe is empty!")
-        return processed_df
+        print("\nNo valid species data found. Creating a basic DataFrame with 'No_Animals_Detected'.")
+        # Create a minimal dataframe with the base columns
+        minimal_df = df[base_cols].copy()
+        minimal_df['Species'] = 'No_Animals_Detected'
+        minimal_df['Count'] = 1
+        minimal_df['Notes'] = ''
+        return minimal_df
+
+    # Standardize species names
+    standardized_df = standardize_species_names(processed_df)
     
-    # Standardize species names to fix capitalization inconsistencies
-    print("\n--- Standardizing Species Names ---")
-    if 'Species' in processed_df.columns:
-        # First, let's see what we're working with
-        original_unique = processed_df['Species'].nunique()
-        
-        # Standardize the species names:
-        # 1. Strip leading/trailing whitespace
-        # 2. Replace multiple spaces with single space
-        # 3. Handle case normalization carefully
-        processed_df['Species'] = processed_df['Species'].str.strip()
-        processed_df['Species'] = processed_df['Species'].str.replace(r'\s+', ' ', regex=True)
-        
-        # Create a standardized mapping based on lowercase comparison
-        # This will help us identify and merge duplicates
-        species_lower_map = {}
-        for species in processed_df['Species'].dropna().unique():
-            species_lower = species.lower()
-            if species_lower not in species_lower_map:
-                # First occurrence sets the standard
-                species_lower_map[species_lower] = species
-            else:
-                # If we already have this species (in lowercase), use the existing standard
-                print(f"  Found duplicate: '{species}' will be merged with '{species_lower_map[species_lower]}'")
-        
-        # Apply the standardization
-        processed_df['Species'] = processed_df['Species'].str.lower().map(species_lower_map).fillna(processed_df['Species'])
-        
-        # Now apply proper capitalization for scientific names
-        # Most scientific names should have first letter capitalized for genus, lowercase for species
-        def standardize_scientific_name(name):
-            if pd.isna(name):
-                return name
-            
-            # Special cases that should remain as-is
-            special_cases = {
-                'unknown': 'Unknown',
-                'no_animals_detected': 'No_Animals_Detected',
-                'anatidae': 'Anatidae',  # Family names stay capitalized
-                'phalacrocoracidae': 'Phalacrocoracidae',
-                'corvidae': 'Corvidae'
-            }
-            
-            name_lower = name.lower()
-            if name_lower in special_cases:
-                return special_cases[name_lower]
-            
-            # For binomial names (genus + species)
-            parts = name.split()
-            if len(parts) == 2:
-                # Capitalize genus, lowercase species epithet
-                return f"{parts[0].capitalize()} {parts[1].lower()}"
-            elif len(parts) == 1:
-                # Single word - likely genus or common name
-                return parts[0].capitalize()
-            else:
-                # For anything else, just title case
-                return name.title()
-        
-        processed_df['Species'] = processed_df['Species'].apply(standardize_scientific_name)
-        
-        new_unique = processed_df['Species'].nunique()
-        print(f"Species names before standardization: {original_unique}")
-        print(f"Species names after standardization: {new_unique}")
-        print(f"Merged {original_unique - new_unique} duplicate species names")
-        
-        # Show the standardized species list
-        species_counts = processed_df['Species'].value_counts()
-        print("\nTop species after standardization:")
-        print(species_counts.head(10))
+    print("\nTop species after standardization:")
+    if not standardized_df.empty:
+        print(standardized_df['Species'].value_counts().head(10))
     
-    # Convert DateTime to proper format
-    processed_df['DateTime'] = pd.to_datetime(processed_df['DateTime'])
-    
-    # Show some statistics about the expansion
-    print("\n--- Multi-Species Expansion Statistics ---")
-    dup_times = processed_df[processed_df.duplicated(subset=['DateTime'], keep=False)]
-    unique_dup_times = dup_times['DateTime'].nunique()
-    print(f"Timestamps with multiple species: {unique_dup_times}")
-    print(f"Total rows with shared timestamps: {len(dup_times)}")
-    
-    if not dup_times.empty:
-        # Show an example
-        sample_time = dup_times['DateTime'].iloc[0]
-        sample_data = processed_df[processed_df['DateTime'] == sample_time][['DateTime', 'Species', 'Count']]
-        print(f"\nExample - Multiple species at {sample_time}:")
-        print(sample_data)
+    # Analyze multi-species rows
+    analyze_multi_species_rows(df, standardized_df)
     
     print("--- Camera Data Loaded and Processed ---")
-    return processed_df
+    return standardized_df
 
 
 def load_and_prepare_water_data(file_id):
-    """
-    Loads water sensor data and standardizes column names.
-    This updated version ensures all key measurement columns are converted
-    to a numeric type for successful interpolation and treats zeros as missing values.
-    """
+    """Loads and prepares water quality and environmental data."""
     print("\n--- Loading Water Quality Data ---")
-    df = pd.read_csv(file_id)
+    try:
+        df = pd.read_csv(file_id, low_memory=False)
+        print(f"Raw water data shape: {df.shape}")
+    except Exception as e:
+        print(f"Error loading water data: {e}")
+        return None
 
-    print(f"Original water data columns: {list(df.columns)}")
-
-    # Combine date and time columns into a single DateTime object
-    df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-    df.drop(columns=['Date', 'Time'], inplace=True)
-
-    # --- MODIFICATION START ---
-
-    # Standardize column names. ADDED 'Tidal Level Inside Tidegate [m]'
+    # Rename columns to standardized names
     rename_map = {
-        'Tidal Level Outside Tidegate [m]': 'Depth',
-        'Tidal Level Inside Tidegate [m]': 'Depth_Inside',
-        'Air Temp [C]': 'Air_Temp_C',
+        'Air Temp [C]': 'Air_Temp_C', 
         'Gate Opening MTR [Degrees]': 'Gate_Opening_MTR_Deg',
         'Gate Opening Top Hinge [Degrees]': 'Gate_Opening_Top_Hinge_Deg',
-        'Wind Speed [km/h]': 'Wind_Speed_km_h',
+        'Tidal Level Outside Tidegate [m]': 'Depth', 
+        'Tidal Level Inside Tidegate [m]': 'Depth_Inside',
+        'Wind Speed [km/h]': 'Wind_Speed_km_h'
     }
+    df = df.rename(columns=rename_map)
+
+    # Handle DateTime column creation
+    if 'DateTime' in df.columns:
+        df['DateTime'] = pd.to_datetime(df['DateTime'], errors='coerce')
+    elif 'Date' in df.columns and 'Time' in df.columns:
+        try:
+            df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], errors='coerce')
+        except Exception as e:
+            print(f"Error combining 'Date' and 'Time' columns: {e}")
+            return None
+    else:
+        print("\nCRITICAL ERROR: Could not find 'DateTime' column, nor 'Date' and 'Time' columns to create it.")
+        print(f"Available columns: {list(df.columns)}")
+        return None
     
-    # Rename only the columns that are present in the dataframe
-    df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns}, inplace=True)
+    # Remove rows with invalid DateTime
+    before_datetime_filter = len(df)
+    df = df.dropna(subset=['DateTime'])
+    after_datetime_filter = len(df)
+    print(f"Removed {before_datetime_filter - after_datetime_filter} rows with invalid DateTime")
 
-    # Define all columns that should be numeric for analysis and interpolation
+    # Process numeric columns
     numeric_cols = [
-        'Depth', 'Depth_Inside', 'Air_Temp_C', 'Gate_Opening_MTR_Deg',
-        'Gate_Opening_Top_Hinge_Deg', 'Wind_Speed_km_h'
+        'Air_Temp_C', 'Gate_Opening_MTR_Deg', 'Gate_Opening_Top_Hinge_Deg',
+        'Depth', 'Depth_Inside', 'Wind_Speed_km_h'
     ]
-
-    # Forcefully convert these columns to numeric type.
-    # Any values that cannot be converted (e.g., '---', 'Error') will become NaN.
-    print("\nEnsuring data columns are numeric for interpolation...")
+    
     for col in numeric_cols:
         if col in df.columns:
-            original_nulls = df[col].isnull().sum()
-            # Convert to numeric
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            # CRITICAL: Replace zeros with NaN for tidal level columns
-            if col in ['Depth', 'Depth_Inside']:
+            # Handle depth columns specially - replace 0 with NaN
+            if 'Depth' in col:
                 zero_count = (df[col] == 0).sum()
-                df.loc[df[col] == 0, col] = np.nan
-                print(f"  -> Replaced {zero_count} zeros with NaN in '{col}'")
-            
-            new_nulls = df[col].isnull().sum()
-            if (new_nulls > original_nulls):
-                print(f"  -> Converted {new_nulls - original_nulls} non-numeric values to NaN in '{col}'")
+                if zero_count > 0:
+                    print(f"Replacing {zero_count} zero values in {col} with NaN")
+                    df[col] = df[col].replace(0, pd.NA)
 
-    # --- MODIFICATION END ---
+            # Convert to numeric
+            original_non_numeric = df[col].notna().sum()
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            final_non_numeric = df[col].notna().sum()
+            converted = original_non_numeric - final_non_numeric
+            if converted > 0:
+                print(f"Converted {converted} non-numeric values to NaN in {col}")
+
+    # Select final columns
+    final_cols = ['DateTime'] + [col for col in df.columns if col in list(rename_map.values())]
+    final_cols = [col for col in final_cols if col in df.columns]
     
-    # Set DateTime as the index, which is required for the merging logic
-    df.set_index('DateTime', inplace=True)
+    result_df = df[final_cols]
+    print(f"Final water data shape: {result_df.shape}")
+    print(f"Final columns: {list(result_df.columns)}")
     
-    # Print summary statistics for the depth columns to verify
-    print("\n--- Depth Column Statistics After Processing ---")
-    if 'Depth' in df.columns:
-        print(f"Depth (Outside): Non-null values: {df['Depth'].notna().sum()}, "
-              f"Min: {df['Depth'].min():.2f}, Max: {df['Depth'].max():.2f}")
-    if 'Depth_Inside' in df.columns:
-        print(f"Depth_Inside: Non-null values: {df['Depth_Inside'].notna().sum()}, "
-              f"Min: {df['Depth_Inside'].min():.2f}, Max: {df['Depth_Inside'].max():.2f}")
-    
-    print(f"\nProcessed water data shape: {df.shape}")
-    print("--- Water Quality Data Loaded and Standardized ---")
-    return df
+    return result_df

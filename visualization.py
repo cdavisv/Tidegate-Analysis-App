@@ -46,8 +46,7 @@ def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
             labels={'x': 'MTR Gate State', 'y': 'Detection Rate (%)'},
             color='Detection_Rate_Pct', color_continuous_scale='Viridis'
         )
-        #fig_gate_mtr.show()
-        save_plot(fig_gate_mtr, "2a_mtr_gate_detection_rate") # <-- ADDED
+        save_plot(fig_gate_mtr, "2a_mtr_gate_detection_rate")
 
     if hinge_gate_df is not None and not hinge_gate_df.empty:
         print(" -> Plotting: Detection Rate by Top Hinge Gate Angle")
@@ -57,8 +56,7 @@ def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
             labels={'x': 'Top Hinge Gate State', 'y': 'Detection Rate (%)'},
             color='Detection_Rate_Pct', color_continuous_scale='Plasma'
         )
-        #fig_gate_hinge.show()
-        save_plot(fig_gate_hinge, "2b_hinge_gate_detection_rate") # <-- ADDED
+        save_plot(fig_gate_hinge, "2b_hinge_gate_detection_rate")
     
     if tidal_df is not None and not tidal_df.empty:
         print(" -> Plotting: Detection Rate by Tidal Level")
@@ -67,8 +65,7 @@ def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
             title='Detection Rate by Tidal Level',
             labels={'x': 'Tidal Level', 'y': 'Detection Rate (%)'}
         )
-        #fig_tidal.show()
-        save_plot(fig_tidal, "2c_tidal_level_detection_rate") # <-- ADDED
+        save_plot(fig_tidal, "2c_tidal_level_detection_rate")
 
         
 def create_safe_water_visualizations(df, title_suffix=""):
@@ -95,12 +92,8 @@ def create_safe_water_visualizations(df, title_suffix=""):
 
     print(f" -> Plotting: Water Quality Parameters Over Time {title_suffix}")
     for param, (label, color) in available_params.items():
-        # --- MODIFIED LINE ---
-        # Added markers=True to show exactly where the data points are.
         fig = px.line(df, x='DateTime', y=param, title=label, labels={'y': label}, markers=True)
-        # --- END MODIFICATION ---
         fig.update_traces(line_color=color, line_width=1.5, marker=dict(size=4))
-        #fig.show()
         save_plot(fig, f"3_water_quality_{param}{title_suffix}")
 
 
@@ -114,21 +107,17 @@ def create_analysis_plots(df_combined, species_df):
         print(" -> Skipping comprehensive plots: Combined DataFrame is empty.")
         return
 
-    # Plot 1: Top Species Detection Frequency
     if not species_df.empty and 'Species' in species_df.columns:
         print(" -> Plotting: Top 10 Species by Detection Events")
         top_species = species_df['Species'].value_counts().nlargest(10)
         fig_species = px.bar(top_species, x=top_species.index, y=top_species.values, title='Top 10 Species by Detection Events', labels={'y': 'Number of Detections', 'x': 'Species'})
-        #fig_species.show()
         save_plot(fig_species, "4a_top_10_species_events")
     
-    # Plot 2: Water Quality Correlation Matrix
     wq_corr_cols = [col for col in ['Water_Temp_C', 'pH', 'DO_mgL', 'Salinity_psu', 'Turbidity_NTU', 'Depth'] if col in df_combined.columns]
     if len(wq_corr_cols) > 1:
         print(" -> Plotting: Water Quality Correlation Matrix")
         corr_matrix = df_combined[wq_corr_cols].corr()
         fig_corr = px.imshow(corr_matrix, text_auto=True, title='Water Quality Correlation Matrix', aspect="auto")
-        #fig_corr.show()
         save_plot(fig_corr, "4b_water_quality_correlation")
 
 def plot_gate_analysis(gate_analysis_df):
@@ -142,7 +131,6 @@ def plot_gate_analysis(gate_analysis_df):
         color='Detection_Rate_Pct',
         color_continuous_scale='Viridis'
     )
-    #fig.show()
     save_plot(fig, "2_gate_analysis_detection_rate")
 
 
@@ -158,8 +146,6 @@ def plot_bird_analysis(summary_table, combined_df):
         print(" -> Skipping bird plots: No bird detections to visualize.")
         return
 
-    # --- Plot 1: Heatmap of Detection Hot-Spots ---
-    # This visualizes the summary table, showing the best conditions for hunting.
     if not summary_table.empty:
         print(" -> Plotting: Heatmap of Bird Detection 'Hot-Spots'")
         fig_heatmap = px.imshow(
@@ -169,19 +155,12 @@ def plot_bird_analysis(summary_table, combined_df):
             title="<b>Bird Detection Rate (%) by Gate Status and Tidal Flow</b>"
         )
         fig_heatmap.update_xaxes(side="top")
-        #fig_heatmap.show()
         save_plot(fig_heatmap, "5a_bird_detection_heatmap")
 
-    # --- Plot 2: Granular Scatter Plot ---
-    # This plot shows every single water measurement. Points are colored if a bird was
-    # detected, directly showing the relationship between gate angle and tidal change.
     if 'Gate_Opening_MTR_Deg' in combined_df.columns and 'tidal_change_m_hr' in combined_df.columns:
         print(" -> Plotting: Granular Scatter Plot of Detections")
 
-        # Downsample for performance if the dataframe is very large
         plot_df = combined_df.sample(n=5000) if len(combined_df) > 5000 else combined_df
-
-        # FIX: Convert the DateTime index to a column so Plotly can access it.
         plot_df = plot_df.reset_index()
 
         fig_scatter = px.scatter(
@@ -198,10 +177,8 @@ def plot_bird_analysis(summary_table, combined_df):
             },
             hover_data=['DateTime']
         )
-        # Add lines to indicate rising/falling tide and open/closed gate
         fig_scatter.add_hline(y=0, line_dash="dash", annotation_text="Slack Tide")
         fig_scatter.add_vline(x=5, line_dash="dash", annotation_text="Gate Closed")
-        #fig_scatter.show()
         save_plot(fig_scatter, "5b_bird_detection_scatter")
 
 def plot_species_analysis(species_summary_df):
@@ -225,25 +202,20 @@ def plot_species_analysis(species_summary_df):
             hover_name=plot_df.index,
             hover_data={'Detection_Events': True, 'Total_Count': True}
         )
-        
-        #fig.show() # <-- Still shows the interactive plot
-        save_plot(fig, "1_species_summary") # <-- ADDED: Saves the plot to files
+        save_plot(fig, "1_species_summary")
 
 def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
     """
     Helper function to generate and save a stylized plot of the tide cycle
     highlighting the point of peak bird activity.
     """
-    # 1. Create data for a generic tide cycle (sine wave)
     time = np.linspace(0, 12, 300)
-    depth = np.sin(time * np.pi / 6 - np.pi / 2) # Shifted to start at low tide
+    depth = np.sin(time * np.pi / 6 - np.pi / 2)
 
-    # 2. Setup the plot
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(time, depth, color='skyblue', linewidth=2)
     ax.fill_between(time, depth, -1, color='skyblue', alpha=0.3)
 
-    # 3. Define positions for annotations
     positions = {
         'Low Slack': (0, -1),
         'Rising': (3, 0),
@@ -251,18 +223,13 @@ def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
         'Falling': (9, 0)
     }
 
-    # Add text labels for each phase of the tide
     for state, (t, d) in positions.items():
         ax.text(t, d + 0.15 if d >= 0 else d - 0.2, state, ha='center', fontsize=12, weight='bold')
 
-    # 4. Highlight the peak activity point
     if peak_tidal_state in positions:
         peak_time, peak_depth = positions[peak_tidal_state]
 
-        # Place a star icon at the peak location
         ax.plot(peak_time, peak_depth, '*', markersize=20, color='gold', markeredgecolor='black')
-
-        # Add an annotation with details about the peak
         ax.annotate(
             f"Peak Activity:\n{peak_gate_state}",
             xy=(peak_time, peak_depth),
@@ -273,7 +240,6 @@ def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
             bbox=dict(boxstyle="round,pad=0.5", fc="gold", ec="black", lw=1, alpha=0.8)
         )
 
-    # 5. Finalize and save the plot
     ax.set_title(f"Peak Bird Activity Condition: {title}", fontsize=16, weight='bold')
     ax.set_xlabel("Tidal Cycle (~12 hours)")
     ax.set_ylabel("Relative Water Level")
@@ -283,7 +249,6 @@ def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
     sns.despine(left=True, bottom=True)
     plt.tight_layout()
 
-    # Save the figure with a descriptive name
     filename = f"hypothesis_visualization_{title.replace(' ', '_')}.png"
     plt.savefig(filename)
     print(f" -> Saved hypothesis visualization to '{filename}'")
@@ -300,7 +265,6 @@ def create_hypothesis_visualizations(df):
         print(" -> Skipping hypothesis visualizations: Required columns not found.")
         return
 
-    # Define the analyses to visualize
     analyses = {
         "MTR Gate": "Gate_Opening_MTR_Deg_category",
         "Top Hinge Gate": "Gate_Opening_Top_Hinge_Deg_category",
@@ -313,7 +277,6 @@ def create_hypothesis_visualizations(df):
             print(f" -> Skipping '{title}' visualization: Column '{gate_col}' not found.")
             continue
 
-        # Perform the analysis to find the peak condition
         summary_table = (
             df.groupby([gate_col, 'detailed_tidal_flow'])['is_bird_detection']
             .mean()
@@ -324,13 +287,10 @@ def create_hypothesis_visualizations(df):
         if summary_table.empty:
             continue
 
-        # Find the peak gate state and tidal state
         peak_gate_state = summary_table.max(axis=1).idxmax()
         peak_tidal_state = summary_table.max(axis=0).idxmax()
 
-        # For the 'Specific Combos' analysis, provide a cleaner label if it's an 'Other' sub-category
         if title == "Combined Gate (Specific Combos)" and peak_gate_state == 'Other':
-             # Re-run logic to find the specific sub-combination driving the 'Other' peak
             other_df = df[
                 (df[gate_col] == 'Other') & (df['detailed_tidal_flow'] == peak_tidal_state)
             ]
@@ -344,54 +304,54 @@ def create_hypothesis_visualizations(df):
 def create_tide_cycle_visualizations(df, tide_analysis_results):
     """
     Creates comprehensive visualizations of animal detections across tidal cycles.
+    This version adds a fail-safe filter to exclude 'Unknown' from plots.
     """
     print("\n--- Generating Tide Cycle Visualizations ---")
 
-    # Unpack the results from the analysis step
     detection_by_tide, phase_detection, species_tide_table = tide_analysis_results
 
     # Plot 1: Bar chart of detection rate by general tidal state
     if detection_by_tide is not None and not detection_by_tide.empty:
+        # --- FAIL-SAFE FIX: Explicitly filter the data for plotting ---
+        plot_data = detection_by_tide[detection_by_tide.index != 'Unknown']
         print(" -> Plotting: Detection Rate by Tidal State (Rising, Falling, etc.)")
-        fig_state = px.bar(
-            detection_by_tide,
-            x=detection_by_tide.index,
-            y='detection_rate',
-            title='Detection Rate vs. Tidal State',
-            labels={'x': 'Tidal State', 'detection_rate': 'Detection Rate'},
-            color='detection_rate',
-            color_continuous_scale='Blues'
-        )
-        save_plot(fig_state, "6a_detection_by_tidal_state")
+        
+        if plot_data.empty:
+            print("   -> Skipping plot: No data left after removing 'Unknown' state.")
+        else:
+            fig_state = px.bar(
+                plot_data, # Use the filtered data
+                x=plot_data.index,
+                y='detection_rate',
+                title='Detection Rate vs. Tidal State',
+                labels={'x': 'Tidal State', 'detection_rate': 'Detection Rate'},
+                color='detection_rate',
+                color_continuous_scale='Blues'
+            )
+            save_plot(fig_state, "6a_detection_by_tidal_state")
+        # --- END FIX ---
 
     # Plot 2: Polar chart showing detection rate by the phase of the tide
     if phase_detection is not None and not phase_detection.empty:
         print(" -> Plotting: Detection Rate by Tidal Phase (Polar Chart)")
         
-        # --- START: MODIFIED SECTION ---
-        # Prepare data for plotting
         plot_data = phase_detection.copy()
         plot_data['phase_midpoint'] = plot_data.index.str.split('-').str[0].astype(float)
         plot_data['phase_degrees'] = plot_data['phase_midpoint'] * 360
 
-        # Manually close the loop to avoid the .append error
-        # We do this by concatenating the first row to the end of the DataFrame
         if not plot_data.empty:
             plot_data_closed = pd.concat([plot_data, plot_data.iloc[[0]]], ignore_index=True)
         else:
             plot_data_closed = plot_data
 
         fig_polar = px.line_polar(
-            plot_data_closed, # Use the manually closed dataframe
+            plot_data_closed,
             r='detection_rate',
             theta='phase_degrees',
-            # line_close=True, # This argument is removed to prevent the error
             title='Detection Rate Across the Tidal Cycle',
             labels={'detection_rate': 'Detection Rate'},
             template='plotly_dark'
         )
-        # --- END: MODIFIED SECTION ---
-
         fig_polar.update_layout(
             polar=dict(
                 angularaxis=dict(
@@ -405,13 +365,22 @@ def create_tide_cycle_visualizations(df, tide_analysis_results):
 
     # Plot 3: Heatmap of tidal preferences for top species
     if species_tide_table is not None and not species_tide_table.empty:
+        # --- FAIL-SAFE FIX: Remove 'Unknown' column if it exists ---
+        plot_data_heatmap = species_tide_table.copy()
+        if 'Unknown' in plot_data_heatmap.columns:
+            plot_data_heatmap = plot_data_heatmap.drop(columns=['Unknown'])
+        
         print(" -> Plotting: Heatmap of Species Tide Preferences")
-        fig_heatmap = px.imshow(
-            species_tide_table,
-            text_auto=".1f",
-            aspect="auto",
-            title='Tidal State Preference by Species (% of Detections)',
-            labels=dict(x="Tidal State", y="Species", color="Detection %"),
-            color_continuous_scale='viridis'
-        )
-        save_plot(fig_heatmap, "6c_species_tide_preference_heatmap")
+        if plot_data_heatmap.empty or plot_data_heatmap.shape[1] == 0:
+             print("   -> Skipping plot: No data left after removing 'Unknown' state.")
+        else:
+            fig_heatmap = px.imshow(
+                plot_data_heatmap,
+                text_auto=".1f",
+                aspect="auto",
+                title='Tidal State Preference by Species (% of Detections)',
+                labels=dict(x="Tidal State", y="Species", color="Detection %"),
+                color_continuous_scale='viridis'
+            )
+            save_plot(fig_heatmap, "6c_species_tide_preference_heatmap")
+        # --- END FIX ---
