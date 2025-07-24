@@ -18,19 +18,18 @@ def find_species_columns(df):
 def process_and_combine_species(df, species_cols, base_cols):
     """
     Processes each species column using the provided base_cols, combines them 
-    into a single long-format DataFrame, and handles blank species names if a count exists.
+    into a single long-format DataFrame. Only processes rows that actually have species data.
     """
     all_species_dfs = []
     
-    print(f"Processing {len(species_cols)} species columns...")
+    print(f"Processing {len(species_cols)} species columns for DETECTION rows only...")
     print(f"Base columns: {base_cols}")
 
-    # Handle blank species names with counts > 0
+    # Handle blank species names with counts > 0 (only for rows we're processing)
     for i in range(1, len(species_cols) + 1):
         species_col = f'Species {i}'
-        # Try both possible count column formats
-        count_col = f'Species {i} Count'  # Format: "Species 1 Count"
-        alt_count_col = f'Species Count {i}'  # Format: "Species Count 1"
+        count_col = f'Species {i} Count'
+        alt_count_col = f'Species Count {i}'
         
         # Use whichever format exists in the DataFrame
         if count_col in df.columns:
@@ -53,9 +52,8 @@ def process_and_combine_species(df, species_cols, base_cols):
     # Process each species column
     for i in range(1, len(species_cols) + 1):
         species_col = f'Species {i}'
-        # Try both possible count column formats
-        count_col = f'Species {i} Count'  # Format: "Species 1 Count"
-        alt_count_col = f'Species Count {i}'  # Format: "Species Count 1"
+        count_col = f'Species {i} Count'
+        alt_count_col = f'Species Count {i}'
         notes_col = f'Notes {i}'
         
         # Use whichever count format exists in the DataFrame
@@ -71,10 +69,6 @@ def process_and_combine_species(df, species_cols, base_cols):
         if species_col not in df.columns:
             print(f"      Warning: {species_col} not found in DataFrame")
             continue
-            
-        if actual_count_col is None:
-            print(f"      Warning: Neither {count_col} nor {alt_count_col} found in DataFrame")
-            # Continue without count column - we'll default to 1
         
         # Build list of columns for this species
         current_species_cols = [species_col]
@@ -86,11 +80,13 @@ def process_and_combine_species(df, species_cols, base_cols):
         # Create temporary dataframe with base columns + species columns
         temp_df = df[base_cols + current_species_cols].copy()
         
-        # Filter out rows where species is null, empty, or whitespace
+        # IMPORTANT: Only filter out rows where species is explicitly null/empty
+        # Don't filter out rows where species exists but might be blank
         before_filter = len(temp_df)
         temp_df = temp_df[
             temp_df[species_col].notna() & 
-            (temp_df[species_col].str.strip() != '')
+            (temp_df[species_col].astype(str).str.strip() != '') &
+            (temp_df[species_col].astype(str).str.strip() != 'nan')
         ]
         after_filter = len(temp_df)
         
@@ -103,9 +99,7 @@ def process_and_combine_species(df, species_cols, base_cols):
             continue
 
         # Rename columns to standard names
-        rename_dict = {
-            species_col: 'Species'
-        }
+        rename_dict = {species_col: 'Species'}
         if actual_count_col is not None:
             rename_dict[actual_count_col] = 'Count'
         if notes_col in df.columns:
@@ -128,26 +122,13 @@ def process_and_combine_species(df, species_cols, base_cols):
         all_species_dfs.append(temp_df)
 
     if not all_species_dfs:
-        print("\nERROR: No valid species entries found after processing all columns.")
-        print("This could be because:")
-        print("1. All species columns are empty")
-        print("2. All species values are null/blank")
-        print("3. Column names don't match expected pattern")
-        
-        # Debug: Show sample of actual data
-        print("\nDebugging - Sample of first few rows:")
-        for i in range(1, min(4, len(species_cols) + 1)):
-            species_col = f'Species {i}'
-            if species_col in df.columns:
-                sample_values = df[species_col].head(10).tolist()
-                print(f"   {species_col}: {sample_values}")
-        
+        print("\nNo valid species entries found in detection rows.")
         return pd.DataFrame()
 
     print(f"\nCombining {len(all_species_dfs)} DataFrames...")
     combined = pd.concat(all_species_dfs, ignore_index=True)
-    print(f"Final combined DataFrame shape: {combined.shape}")
-    print(f"Unique species found: {combined['Species'].nunique()}")
+    print(f"Combined detections DataFrame shape: {combined.shape}")
+    print(f"Unique species found in detections: {combined['Species'].nunique()}")
     
     return combined
 
@@ -211,7 +192,10 @@ def analyze_multi_species_rows(original_df, expanded_df):
         print("No instances of multiple species detected in a single timestamp.")
 
 def load_and_prepare_camera_data(file_id):
-    """Main function to load, process, and standardize camera data."""
+    """
+    Main function to load, process, and standardize camera data.
+    FIXED: Now includes rows with no species data as 'No_Animals_Detected'.
+    """
     print("\n--- Loading and Preparing Camera Data ---")
     try:
         df = pd.read_csv(file_id, low_memory=False)
@@ -248,40 +232,75 @@ def load_and_prepare_camera_data(file_id):
     print(f"\nBase columns (non-species-specific): {len(base_cols)}")
     print(f"Base columns: {base_cols}")
 
+    # CRITICAL FIX: Check for camera observations vs detections
+    species_1_col = 'Species 1'
+    if species_1_col not in df.columns:
+        print(f"ERROR: '{species_1_col}' column not found!")
+        return None
+    
+    # Count total camera observations (all rows with valid DateTime)
+    total_camera_observations = len(df)
+    
+    # Count actual detections (rows with Species 1 data)
+    actual_detections = df[species_1_col].notna() & (df[species_1_col].str.strip() != '')
+    detection_count = actual_detections.sum()
+    no_detection_count = total_camera_observations - detection_count
+    
+    print(f"\n🔍 CAMERA OBSERVATION ANALYSIS:")
+    print(f"   • Total camera observations: {total_camera_observations:,}")
+    print(f"   • Observations with animals detected: {detection_count:,}")
+    print(f"   • Observations with no animals detected: {no_detection_count:,}")
+    print(f"   • True detection rate: {(detection_count/total_camera_observations)*100:.1f}%")
+
     # Find species columns
     species_cols = find_species_columns(df)
     
     if not species_cols:
-        print("No species columns found. Creating a basic DataFrame with 'No_Animals_Detected'.")
-        df['Species'] = 'No_Animals_Detected'
-        df['Count'] = 1
-        df['Notes'] = ''
-        return df[base_cols + ['Species', 'Count', 'Notes']]
+        print("No species columns found.")
+        species_cols = []
     
-    # Process and combine species data
-    processed_df = process_and_combine_species(df, species_cols, base_cols)
+    # FIXED APPROACH: Process ALL camera observations
+    all_camera_observations = []
     
-    if processed_df.empty:
-        print("\nNo valid species data found. Creating a basic DataFrame with 'No_Animals_Detected'.")
-        # Create a minimal dataframe with the base columns
-        minimal_df = df[base_cols].copy()
-        minimal_df['Species'] = 'No_Animals_Detected'
-        minimal_df['Count'] = 1
-        minimal_df['Notes'] = ''
-        return minimal_df
-
-    # Standardize species names
-    standardized_df = standardize_species_names(processed_df)
+    # 1. First, add all rows with NO detections
+    no_detection_rows = df[~actual_detections].copy()
+    if not no_detection_rows.empty:
+        # Create standardized format for no-detection rows
+        no_detection_standardized = no_detection_rows[base_cols].copy()
+        no_detection_standardized['Species'] = 'No_Animals_Detected'
+        no_detection_standardized['Count'] = 0
+        no_detection_standardized['Notes'] = 'No animals detected'
+        all_camera_observations.append(no_detection_standardized)
+        print(f"   • Added {len(no_detection_standardized)} 'No_Animals_Detected' records")
     
-    print("\nTop species after standardization:")
-    if not standardized_df.empty:
-        print(standardized_df['Species'].value_counts().head(10))
+    # 2. Then, process rows WITH detections using existing logic
+    detection_rows = df[actual_detections].copy()
+    if not detection_rows.empty and species_cols:
+        processed_detections = process_and_combine_species(detection_rows, species_cols, base_cols)
+        if not processed_detections.empty:
+            # Standardize species names for detections
+            processed_detections = standardize_species_names(processed_detections)
+            all_camera_observations.append(processed_detections)
+            print(f"   • Added {len(processed_detections)} animal detection records")
     
-    # Analyze multi-species rows
-    analyze_multi_species_rows(df, standardized_df)
-    
-    print("--- Camera Data Loaded and Processed ---")
-    return standardized_df
+    # 3. Combine all observations
+    if all_camera_observations:
+        final_df = pd.concat(all_camera_observations, ignore_index=True)
+        print(f"\n✅ FINAL CAMERA DATA:")
+        print(f"   • Total records: {len(final_df):,}")
+        print(f"   • Detection records: {len(final_df[final_df['Species'] != 'No_Animals_Detected']):,}")
+        print(f"   • No-detection records: {len(final_df[final_df['Species'] == 'No_Animals_Detected']):,}")
+        print(f"   • Unique species: {final_df['Species'].nunique()}")
+        
+        # Show species distribution
+        print("\nSpecies distribution:")
+        species_counts = final_df['Species'].value_counts()
+        print(species_counts.head(10))
+        
+        return final_df
+    else:
+        print("\nERROR: No camera observations could be processed.")
+        return None
 
 
 def load_and_prepare_water_data(file_id):

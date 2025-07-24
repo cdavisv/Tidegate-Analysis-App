@@ -37,7 +37,7 @@ def main():
     combined_df = data_combiner.combine_data(
         camera_df=camera_df,
         water_df=water_df,
-        max_interp_hours=3
+        max_interp_hours=1
     )
     
     if combined_df.empty:
@@ -87,7 +87,11 @@ def main():
     tide_viz_results = (detection_by_tide, phase_detection, species_tide_table)
     visualization.create_tide_cycle_visualizations(tide_cycle_df, tide_viz_results)
     
-    # 6. Generate Summary Report
+    # 6. Generate Additional Comprehensive Visualizations
+    import additional_visualizations
+    additional_visualizations.create_all_additional_visualizations(comprehensive_results, combined_df)
+    
+    # 7. Generate Summary Report
     generate_summary_report(comprehensive_results)
     
     print("\n--- Comprehensive Analysis Pipeline Complete ---")

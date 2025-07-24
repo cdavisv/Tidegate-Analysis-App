@@ -141,7 +141,7 @@ def plot_bird_analysis(summary_table, combined_df):
     """
     print("\n--- Generating Bird Behavior Visualizations ---")
 
-    bird_detections_df = combined_df[combined_df['is_bird_detection']].copy()
+    bird_detections_df = combined_df[combined_df['is_animal_detection']].copy()
     if bird_detections_df.empty:
         print(" -> Skipping bird plots: No bird detections to visualize.")
         return
@@ -167,7 +167,7 @@ def plot_bird_analysis(summary_table, combined_df):
             plot_df,
             x="Gate_Opening_MTR_Deg",
             y="tidal_change_m_hr",
-            color="is_bird_detection",
+            color="is_animal_detection",
             color_discrete_map={True: "red", False: "rgba(200, 200, 200, 0.2)"},
             title="<b>Bird Detections vs. Gate Angle and Tidal Change</b>",
             labels={

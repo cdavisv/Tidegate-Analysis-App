@@ -3,76 +3,23 @@
 import pandas as pd
 import numpy as np
 
-def _create_and_print_pivot_summary(df, category_col, title):
-    """
-    Creates and prints a pivot table summary showing bird detection rates (%)
-    and identifies the peak activity hypothesis.
-    """
-    print(f"\n--- Bird Detection Rate (%) by {title} ---")
-
-    if 'is_bird_detection' not in df.columns or not df['is_bird_detection'].any():
-        print(f"Skipping pivot summary for {title}: No bird detections found.")
-        return
-
-    if 'detailed_tidal_flow' not in df.columns or category_col not in df.columns:
-        print(f"Skipping pivot summary for {title}: Missing required columns.")
-        return
-
-    analysis_df = df[df['detailed_tidal_flow'].notna() & (df['detailed_tidal_flow'] != 'Unknown')].copy()
-    analysis_df = analysis_df.dropna(subset=[category_col])
-
-    if analysis_df.empty:
-        print(f"Skipping pivot summary for {title}: No data after filtering.")
-        return
-
-    try:
-        # --- FIX: Calculate mean (rate) instead of sum (count) and convert to percentage ---
-        pivot = pd.pivot_table(
-            analysis_df,
-            values='is_bird_detection',
-            index=category_col,
-            columns='detailed_tidal_flow',
-            aggfunc='mean',
-            fill_value=0
-        )
-        pivot = (pivot * 100).round(2)
-        print(pivot)
-
-        # --- FIX: Add the hypothesis test logic back in ---
-        if pivot.empty or pivot.values.max() == 0:
-            print(f"\nHYPOTHESIS TEST ({title}): No significant bird activity detected for these conditions.")
-        else:
-            # Find the position of the highest rate
-            peak_rate = pivot.values.max()
-            # Get the row (gate state) and column (tide state) names for the peak
-            peak_gate_state = pivot.stack().idxmax()[0]
-            peak_tidal_state = pivot.stack().idxmax()[1]
-            
-            print(f"\nHYPOTHESIS TEST ({title}): Peak bird activity ({peak_rate:.2f}%) occurs when the gate is '{peak_gate_state}' and the tide is '{peak_tidal_state}'.")
-
-    except Exception as e:
-        print(f"Could not generate pivot table for '{title}': {e}")
-
 
 def run_gate_combination_analysis(combined_df):
     """
     Main function to run a series of complex gate combination analyses.
-    This version is robust and handles missing columns gracefully.
+    Updated to include ALL animals (birds, mammals, unknown species).
     """
-    print("\n\n--- GATE COMBINATION ANALYSIS (Birds Only) ---")
+    print("\n\n--- GATE COMBINATION ANALYSIS (All Animals) ---")
     
-    # Define bird species to isolate bird-specific behavior
-    bird_species = [
-        'Anatidae', 'Branta Canadensis', 'Bucephala albeola', 'Megaceryle Alcyon',
-        'Podiceps Grisegena', 'Gavia Immer', 'Nannopterum auritus', 'Urile pelagicus',
-        'Ardea', 'Ardea Alba', 'Ardea Herodias', 'Mergus Merganser',
-        'Corvus Brachyrhynchos', 'Phalacrocoracidae', 'Anas Platyrhynchos', 'Cathartes Aura'
-    ]
+    # UPDATED: Include ALL species detected by cameras (not just birds)
     if 'Species' in combined_df.columns:
-        combined_df['is_bird_detection'] = combined_df['Species'].isin(bird_species)
+        # Get all unique species except 'No_Animals_Detected'
+        all_detected_species = combined_df[combined_df['has_camera_data'] & (combined_df['Species'] != 'No_Animals_Detected')]['Species'].unique()
+        combined_df['is_animal_detection'] = combined_df['Species'].isin(all_detected_species)
+        print(f"Including all detected species: {list(all_detected_species)}")
     else:
-        print("Note: 'Species' column not found. Skipping bird detection analysis.")
-        combined_df['is_bird_detection'] = False
+        print("Note: 'Species' column not found. Skipping animal detection analysis.")
+        combined_df['is_animal_detection'] = False
 
     # Define tidal flow state
     if 'Depth' in combined_df.columns:
@@ -104,7 +51,7 @@ def run_gate_combination_analysis(combined_df):
         ]
         choices_a = ['Wide Open', 'Open', 'Partially Open', 'Closed']
         combined_df['simple_gate_category'] = np.select(conditions_a, choices_a, default='Other')
-        _create_and_print_pivot_summary(combined_df, 'simple_gate_category', "Combined Gate State (Simple)")
+        _create_and_print_pivot_summary_all_species(combined_df, 'simple_gate_category', "Combined Gate State (Simple)")
     else:
         print("\nSkipping Analysis A: Required gate category columns not available.")
 
@@ -125,8 +72,70 @@ def run_gate_combination_analysis(combined_df):
             'MTR Wide Open'
         ]
         combined_df['specific_gate_combo'] = np.select(conditions_b, choices_b, default='Other')
-        _create_and_print_pivot_summary(combined_df, 'specific_gate_combo', "Combined Gate State (Specific Combos)")
+        _create_and_print_pivot_summary_all_species(combined_df, 'specific_gate_combo', "Combined Gate State (Specific Combos)")
     else:
         print("\nSkipping Analysis B: Both 'MTR_category' and 'Hinge_category' are required.")
 
     return combined_df
+
+
+def _create_and_print_pivot_summary_all_species(df, category_col, title):
+    """
+    Creates and prints a pivot table summary showing ALL animal detection rates (%)
+    and identifies the peak activity hypothesis.
+    Updated to use 'is_animal_detection' instead of 'is_bird_detection'.
+    """
+    print(f"\n--- Animal Detection Rate (%) by {title} ---")
+
+    if 'is_animal_detection' not in df.columns or not df['is_animal_detection'].any():
+        print(f"Skipping pivot summary for {title}: No animal detections found.")
+        return
+
+    if 'detailed_tidal_flow' not in df.columns or category_col not in df.columns:
+        print(f"Skipping pivot summary for {title}: Missing required columns.")
+        return
+
+    # Enhanced filtering to remove NaN, 'Unknown', and null values
+    analysis_df = df[
+        df['detailed_tidal_flow'].notna() & 
+        (df['detailed_tidal_flow'] != 'Unknown') &
+        (df['detailed_tidal_flow'] != 'nan') &  # Remove string 'nan'
+        (~df['detailed_tidal_flow'].isna())     # Remove actual NaN
+    ].copy()
+    analysis_df = analysis_df.dropna(subset=[category_col])
+
+    if analysis_df.empty:
+        print(f"Skipping pivot summary for {title}: No data after filtering.")
+        return
+
+    try:
+        # UPDATED: Use 'is_animal_detection' instead of 'is_bird_detection'
+        pivot = pd.pivot_table(
+            analysis_df,
+            values='is_animal_detection',
+            index=category_col,
+            columns='detailed_tidal_flow',
+            aggfunc='mean',
+            fill_value=0
+        )
+        pivot = (pivot * 100).round(2)
+        
+        # Remove any remaining 'nan' columns from the pivot table
+        if 'nan' in pivot.columns:
+            pivot = pivot.drop(columns=['nan'])
+        
+        print(pivot)
+
+        if pivot.empty or pivot.values.max() == 0:
+            print(f"\nHYPOTHESIS TEST ({title}): No significant animal activity detected for these conditions.")
+        else:
+            # Find the position of the highest rate
+            peak_rate = pivot.values.max()
+            # Get the row (gate state) and column (tide state) names for the peak
+            peak_gate_state = pivot.stack().idxmax()[0]
+            peak_tidal_state = pivot.stack().idxmax()[1]
+            
+            print(f"\nHYPOTHESIS TEST ({title}): Peak animal activity ({peak_rate:.2f}%) occurs when the gate is '{peak_gate_state}' and the tide is '{peak_tidal_state}'.")
+
+    except Exception as e:
+        print(f"Could not generate pivot table for '{title}': {e}")

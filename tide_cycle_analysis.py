@@ -95,23 +95,27 @@ def analyze_tide_cycle_detections(combined_df):
 
 def analyze_species_tide_preferences(combined_df, top_n=10):
     """
-    Analyzes tidal preferences, excluding 'Unknown' states.
+    Analyzes tidal preferences, excluding 'Unknown' and NaN states.
     """
     if 'tidal_state' not in combined_df.columns:
         print("\nCannot analyze species tide preferences without tidal state data.")
         return None
     
+    # --- ENHANCED FILTERING: Remove NaN, 'Unknown', and null values ---
     detections_df = combined_df[
         combined_df['has_camera_data'] & 
         (combined_df['Species'] != 'No_Animals_Detected') &
-        (combined_df['tidal_state'] != 'Unknown')
+        (combined_df['tidal_state'] != 'Unknown') &
+        (combined_df['tidal_state'] != 'nan') &  # Remove string 'nan'
+        (combined_df['tidal_state'].notna()) &   # Remove actual NaN
+        (~combined_df['tidal_state'].isna())     # Additional NaN check
     ].copy()
     
     if detections_df.empty:
         print("\nNo animal detections with known tidal states to analyze.")
         return None
     
-    print(f"\n--- Top {top_n} Species Tidal Preferences (Excluding Unknowns) ---")
+    print(f"\n--- Top {top_n} Species Tidal Preferences (Excluding Unknowns and NaN) ---")
     
     top_species = detections_df['Species'].value_counts().head(top_n).index
     
@@ -120,6 +124,13 @@ def analyze_species_tide_preferences(combined_df, top_n=10):
         detections_df[detections_df['Species'].isin(top_species)]['tidal_state'],
         normalize='index'
     ) * 100
+    
+    # --- ADDITIONAL FIX: Remove any remaining 'nan' or 'Unknown' columns ---
+    cols_to_remove = ['nan', 'Unknown']
+    for col in cols_to_remove:
+        if col in species_tide_table.columns:
+            species_tide_table = species_tide_table.drop(columns=[col])
+    # --- END ADDITIONAL FIX ---
     
     print("\nPercentage of detections by tidal state for each species:")
     print(species_tide_table.round(1))
