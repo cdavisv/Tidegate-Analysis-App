@@ -3,11 +3,12 @@
 import pandas as pd
 import numpy as np
 
-def combine_data(camera_df, water_df, max_interp_hours=1):
+def combine_data(camera_df, water_df, max_interp_hours=0.25):  # CHANGED: Default from 1 to 0.25 hours (15 minutes)
     """
     Combines camera and water data by creating a unified timeline,
     interpolating the water data, and then merging it with the camera observations.
-    Updated to properly handle 'No_Animals_Detected' entries.
+    FIXED: Properly identifies camera observations including 'No_Animals_Detected' entries.
+    UPDATED: Default interpolation limit changed to 15 minutes (0.25 hours).
     """
     print("\n--- Combining Data (Robust Method) ---")
 
@@ -22,14 +23,18 @@ def combine_data(camera_df, water_df, max_interp_hours=1):
     print(f"Initial water data shape: {water_df.shape}")
     print(f"Water data columns available: {list(water_df.columns)}")
 
-    # IMPROVEMENT: Show camera detection breakdown
+    # IMPROVEMENT: Show camera detection breakdown  
     if 'Species' in camera_df.columns:
-        detection_breakdown = camera_df['Species'].value_counts()
+        # Calculate from the original camera_df before merging
+        total_camera_obs = len(camera_df)
+        animals_detected = len(camera_df[camera_df['Species'].notna()])
+        no_animals_detected = total_camera_obs - animals_detected  # Calculate by subtraction
+        
         print(f"\nCamera detection breakdown:")
-        print(f"   • Total camera observations: {len(camera_df):,}")
-        print(f"   • No animals detected: {(camera_df['Species'] == 'No_Animals_Detected').sum():,}")
-        print(f"   • Animals detected: {(camera_df['Species'] != 'No_Animals_Detected').sum():,}")
-        print(f"   • Actual detection rate: {((camera_df['Species'] != 'No_Animals_Detected').sum() / len(camera_df)) * 100:.1f}%")
+        print(f"   • Total camera observations: {total_camera_obs:,}")
+        print(f"   • No animals detected: {no_animals_detected:,}")
+        print(f"   • Animals detected: {animals_detected:,}")
+        print(f"   • Actual detection rate: {(animals_detected / total_camera_obs) * 100:.1f}%")
 
     # --- 2. Create Unified Timeline & Interpolate Water Data ---
     print("Handling potential duplicate timestamps in water data by averaging...")
@@ -56,7 +61,7 @@ def combine_data(camera_df, water_df, max_interp_hours=1):
     interpolated_water = water_indexed.reindex(timeline_df.index)
 
     if numeric_water_cols and max_interp_hours > 0:
-        limit_minutes = int(max_interp_hours * 60)
+        limit_minutes = int(max_interp_hours * 60)  # Convert hours to minutes
         interpolated_water[numeric_water_cols] = interpolated_water[numeric_water_cols].interpolate(
             method='time', limit=limit_minutes, limit_direction='both'
         )
@@ -73,13 +78,28 @@ def combine_data(camera_df, water_df, max_interp_hours=1):
     ).sort_values('DateTime').reset_index(drop=True)
 
     # --- 4. Final Processing ---
-    # UPDATED: Now 'has_camera_data' means "camera was active" (includes no-detection periods)
-    combined_df['has_camera_data'] = combined_df['Species'].notna()
+    # FIXED: 'has_camera_data' should be True for ALL camera observations
+    # This includes both animal detections AND no-animal observations
+    # We identify camera observations by checking if they came from the camera_df
+    
+    # Method 1: Check if any camera-specific columns have data
+    camera_indicator_cols = ['Count', 'Notes']  # These exist in all camera observations
+    available_camera_cols = [col for col in camera_indicator_cols if col in combined_df.columns]
+    
+    if available_camera_cols:
+        combined_df['has_camera_data'] = combined_df[available_camera_cols].notna().any(axis=1)
+    else:
+        # Fallback: if camera indicator columns aren't available, use Species
+        combined_df['has_camera_data'] = (
+            combined_df['Species'].notna() | 
+            (combined_df['Notes'] == 'No animals detected')
+        )
     
     # IMPROVEMENT: Add explicit animal detection flag
     combined_df['animal_detected'] = (
-        combined_df['Species'].notna() & 
-        (combined_df['Species'] != 'No_Animals_Detected')
+        combined_df['has_camera_data'] & 
+        (combined_df['Species'] != 'No_Animals_Detected') &
+        combined_df['Species'].notna()
     )
 
     print(f"\n--- Combination and Interpolation Complete ---")
@@ -97,4 +117,3 @@ def combine_data(camera_df, water_df, max_interp_hours=1):
     print(f"Null values in 'Depth_Inside' after process: {combined_df['Depth_Inside'].isnull().sum()}")
 
     return combined_df
-

@@ -267,7 +267,7 @@ def load_and_prepare_camera_data(file_id):
     if not no_detection_rows.empty:
         # Create standardized format for no-detection rows
         no_detection_standardized = no_detection_rows[base_cols].copy()
-        no_detection_standardized['Species'] = 'No_Animals_Detected'
+        #no_detection_standardized['Species'] = 'No_Animals_Detected'
         no_detection_standardized['Count'] = 0
         no_detection_standardized['Notes'] = 'No animals detected'
         all_camera_observations.append(no_detection_standardized)
@@ -286,15 +286,22 @@ def load_and_prepare_camera_data(file_id):
     # 3. Combine all observations
     if all_camera_observations:
         final_df = pd.concat(all_camera_observations, ignore_index=True)
+        
+        # FIXED: Calculate statistics correctly based on actual data structure
+        total_records = len(final_df)
+        detection_records = len(final_df[final_df['Species'].notna()])  # Rows with actual species
+        no_detection_records = len(final_df[final_df['Notes'] == 'No animals detected'])  # Rows with no animals
+        
         print(f"\n✅ FINAL CAMERA DATA:")
-        print(f"   • Total records: {len(final_df):,}")
-        print(f"   • Detection records: {len(final_df[final_df['Species'] != 'No_Animals_Detected']):,}")
-        print(f"   • No-detection records: {len(final_df[final_df['Species'] == 'No_Animals_Detected']):,}")
+        print(f"   • Total records: {total_records:,}")
+        print(f"   • Detection records: {detection_records:,}")
+        print(f"   • No-detection records: {no_detection_records:,}")
         print(f"   • Unique species: {final_df['Species'].nunique()}")
         
         # Show species distribution
         print("\nSpecies distribution:")
-        species_counts = final_df['Species'].value_counts()
+        # Only show actual species (exclude NaN)
+        species_counts = final_df[final_df['Species'].notna()]['Species'].value_counts()
         print(species_counts.head(10))
         
         return final_df

@@ -1,23 +1,27 @@
-# main.py - Updated with Comprehensive Analysis
+# main.py - Updated with Corrected Analysis Naming
 
 import pandas as pd
 import data_loader
 import data_combiner
 import species_analysis  # Keep original for compatibility
 import environmental_analysis  # Keep original for compatibility
-import comprehensive_analysis  # New comprehensive analysis
+import comprehensive_analysis  # Updated comprehensive analysis
 import gate_combination_analysis
 import bird_tide_analysis
 import tide_cycle_analysis
 import visualization
 
 # --- Configuration ---
-CAMERA_DATA_PATH = 'willanch_camera_final.csv'
-WATER_DATA_PATH = 'willanch_sensor_final.csv'
+#CAMERA_DATA_PATH = 'willanch_camera_final.csv'
+#WATER_DATA_PATH = 'willanch_sensor_final.csv'
+#CAMERA_DATA_PATH = 'Palouse_Combined_Camera_Full_Imageset.csv'  # Next camera data path
+WATER_DATA_PATH = 'Palouse_Tide_Data_Combined_newest.csv'  # Next water data path
+CAMERA_DATA_PATH = 'Larson_Camera_Final.csv' 
+#WATER_DATA_PATH = 
 
 def main():
     """
-    Main function to run both original and corrected analysis pipelines.
+    Main function to run both Camera Activity Pattern and Wildlife Detection Efficiency analysis pipelines.
     """
     print("--- Starting Comprehensive Analysis Pipeline ---")
 
@@ -36,8 +40,8 @@ def main():
     # 2. Combine Data
     combined_df = data_combiner.combine_data(
         camera_df=camera_df,
-        water_df=water_df,
-        max_interp_hours=1
+        water_df=water_df
+        #max_interp_hours=0.25
     )
     
     if combined_df.empty:
@@ -47,7 +51,7 @@ def main():
     combined_df.to_csv('combined_data_output.csv', index=False)
     print("\n -> Successfully saved the combined DataFrame to 'combined_data_output.csv'")
 
-    # 3. Run Comprehensive Analysis (Both Original and Corrected)
+    # 3. Run Comprehensive Analysis (Both Camera Activity and Detection Efficiency)
     print("\n" + "="*80)
     print("RUNNING COMPREHENSIVE ANALYSIS")
     print("="*80)
@@ -99,7 +103,7 @@ def main():
 
 def generate_summary_report(comprehensive_results):
     """
-    Generates a summary report comparing the two analysis methods.
+    Generates a summary report comparing Camera Activity Pattern vs Wildlife Detection Efficiency methods.
     """
     print("\n" + "="*80)
     print("FINAL SUMMARY REPORT")
@@ -113,42 +117,51 @@ def generate_summary_report(comprehensive_results):
     print(f"   • Animal detection events: {comparison['animal_detections']:,}")
     print(f"   • Camera activity rate: {comparison['camera_activity_rate']:.3f}%")
     
-    print(f"\n🔍 DETECTION RATES:")
-    print(f"   • Overall (all time periods): {comparison['overall_detection_rate']:.3f}%")
-    print(f"   • During camera operations: {comparison['camera_detection_rate']:.1f}%")
+    print(f"\n🔍 ANALYSIS RESULTS:")
+    print(f"   • Camera activity rate (all time periods): {comparison['camera_activity_rate']:.3f}%")
+    print(f"   • Wildlife detection success rate (camera active): {comparison['camera_detection_rate']:.1f}%")
+    print(f"   • Overall detection rate (all time periods): {comparison['overall_detection_rate']:.3f}%")
     
     print(f"\n📈 KEY INSIGHTS:")
     
     # Get top species from both methods
-    orig_top = comprehensive_results['original']['species_summary'].head(3)
-    corr_top = comprehensive_results['corrected']['species_summary'].head(3)
+    activity_top = comprehensive_results['camera_activity']['species_summary'].head(3)
+    efficiency_top = comprehensive_results['detection_efficiency']['species_summary'].head(3)
     
     print(f"   • Top 3 species (both methods agree):")
-    for i, (species, data) in enumerate(orig_top.iterrows(), 1):
+    for i, (species, data) in enumerate(activity_top.iterrows(), 1):
         print(f"     {i}. {species}: {data['Total_Count']:.0f} individuals, {data['Detection_Events']} events")
     
-    print(f"\n💡 RECOMMENDATIONS:")
-    print(f"   • Use ORIGINAL method for: ecosystem-wide activity patterns")
-    print(f"   • Use CORRECTED method for: camera operation optimization")
-    print(f"   • Camera detection efficiency: {comparison['camera_detection_rate']:.1f}% (very high!)")
-    print(f"   • Consider increasing camera monitoring frequency")
+    print(f"\n💡 ANALYSIS METHOD RECOMMENDATIONS:")
+    print(f"   • Use CAMERA ACTIVITY PATTERN ANALYSIS for:")
+    print(f"     - Understanding when cameras operate most effectively")
+    print(f"     - Identifying monitoring bias and equipment performance")
+    print(f"     - Operational planning and resource allocation")
+    print(f"")
+    print(f"   • Use WILDLIFE DETECTION EFFICIENCY ANALYSIS for:")
+    print(f"     - Understanding wildlife behavior and optimal detection conditions")
+    print(f"     - Conservation and habitat management decisions")
+    print(f"     - Maximizing monitoring success rates")
+    print(f"")
+    print(f"   • Camera detection efficiency: {comparison['camera_detection_rate']:.1f}% - Good performance!")
+    print(f"   • Consider monitoring during wide-open gate conditions for best results")
     
     # Save detailed results to CSV
     try:
-        orig_summary = comprehensive_results['original']['species_summary']
-        corr_summary = comprehensive_results['corrected']['species_summary']
+        activity_summary = comprehensive_results['camera_activity']['species_summary']
+        efficiency_summary = comprehensive_results['detection_efficiency']['species_summary']
         
         # Merge the summaries for comparison
         comparison_df = pd.merge(
-            orig_summary.add_suffix('_Original'),
-            corr_summary.add_suffix('_Corrected'),
+            activity_summary.add_suffix('_Camera_Activity'),
+            efficiency_summary.add_suffix('_Detection_Efficiency'),
             left_index=True,
             right_index=True,
             how='outer'
         ).fillna(0)
         
         comparison_df.to_csv('analysis_comparison.csv')
-        print(f"\n💾 Detailed comparison saved to 'analysis_comparison.csv'")
+        print(f"\n💾 Detailed method comparison saved to 'analysis_comparison.csv'")
         
     except Exception as e:
         print(f"\n⚠️  Could not save comparison CSV: {e}")

@@ -8,6 +8,7 @@ def analyze_tide_cycle_detections(combined_df):
     """
     Analyzes animal detection patterns across the tidal cycle.
     This version filters out 'Unknown' states before analysis.
+    FIXED: Now uses actual animal detections instead of camera activity.
     """
     print("\n\n=== TIDE CYCLE DETECTION ANALYSIS ===")
     
@@ -16,6 +17,14 @@ def analyze_tide_cycle_detections(combined_df):
         return combined_df, pd.DataFrame(), pd.DataFrame()
     
     df = combined_df.copy()
+    
+    # FIXED: Create proper animal detection flag
+    df['is_animal_detection'] = (
+        df['has_camera_data'] &
+        df['Species'].notna() &
+        (df['Notes'] != 'No animals detected')
+    )
+    
     df['tidal_change_m_hr'] = df['Depth'].diff() * 2
     
     slack_threshold = 0.05
@@ -39,17 +48,19 @@ def analyze_tide_cycle_detections(combined_df):
         print("No data remains after filtering for known tidal states.")
         return df, pd.DataFrame(), pd.DataFrame()
 
+    # FIXED: Use animal detection flag instead of camera activity flag
     detection_by_tide = analysis_df.groupby('tidal_state').agg(
         total_observations=('DateTime', 'count'),
-        detections=('has_camera_data', 'sum'),
-        detection_rate=('has_camera_data', 'mean')
+        detections=('is_animal_detection', 'sum'),        # FIXED: actual animal detections
+        detection_rate=('is_animal_detection', 'mean')    # FIXED: animal detection rate
     ).round(4)
     
     print("\n--- Detection Rates by Tidal State (Excluding Unknowns) ---")
     print(detection_by_tide)
     
     if detection_by_tide['detections'].sum() > 20:
-        contingency = pd.crosstab(analysis_df['has_camera_data'], analysis_df['tidal_state'])
+        # FIXED: Use animal detection flag for chi-square test
+        contingency = pd.crosstab(analysis_df['is_animal_detection'], analysis_df['tidal_state'])
         chi2, p_value, dof, expected = stats.chi2_contingency(contingency)
         print(f"\nChi-square test for independence: p-value = {p_value:.4f}")
         if p_value < 0.05:
@@ -57,8 +68,7 @@ def analyze_tide_cycle_detections(combined_df):
         else:
             print("Result: No significant relationship found.")
     
-    # The rest of the function remains the same, using the original `df` for phase analysis
-    # as it relies on normalized depth, not the 'tidal_state' category.
+    # The rest of the function for phase analysis
     df['tidal_height_normalized'] = (df['Depth'] - df['Depth'].min()) / (df['Depth'].max() - df['Depth'].min())
     
     from scipy.signal import find_peaks
@@ -76,10 +86,11 @@ def analyze_tide_cycle_detections(combined_df):
     phase_labels = [f"{i/12:.2f}-{(i+1)/12:.2f}" for i in range(12)]
     df['phase_bin'] = pd.cut(df['tidal_phase'], bins=phase_bins, labels=phase_labels, include_lowest=True)
     
+    # FIXED: Use animal detection flag instead of camera activity flag
     phase_detection = df.groupby('phase_bin', observed=True).agg(
         observations=('DateTime', 'count'),
-        detections=('has_camera_data', 'sum'),
-        detection_rate=('has_camera_data', 'mean')
+        detections=('is_animal_detection', 'sum'),        # FIXED: actual animal detections
+        detection_rate=('is_animal_detection', 'mean')    # FIXED: animal detection rate
     )
     
     print("\n--- Detection Rates by Tidal Phase ---")
@@ -96,15 +107,17 @@ def analyze_tide_cycle_detections(combined_df):
 def analyze_species_tide_preferences(combined_df, top_n=10):
     """
     Analyzes tidal preferences, excluding 'Unknown' and NaN states.
+    FIXED: Now uses proper animal detection logic.
     """
     if 'tidal_state' not in combined_df.columns:
         print("\nCannot analyze species tide preferences without tidal state data.")
         return None
     
-    # --- ENHANCED FILTERING: Remove NaN, 'Unknown', and null values ---
+    # FIXED: Use proper animal detection logic
     detections_df = combined_df[
         combined_df['has_camera_data'] & 
-        (combined_df['Species'] != 'No_Animals_Detected') &
+        combined_df['Species'].notna() &
+        (combined_df['Notes'] != 'No animals detected') &
         (combined_df['tidal_state'] != 'Unknown') &
         (combined_df['tidal_state'] != 'nan') &  # Remove string 'nan'
         (combined_df['tidal_state'].notna()) &   # Remove actual NaN

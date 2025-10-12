@@ -17,13 +17,19 @@ def analyze_species_diversity(camera_df):
         print("Camera data is empty, skipping species diversity analysis.")
         return pd.DataFrame(), pd.DataFrame()
 
-    species_df = camera_df[camera_df['Species'] != 'No_Animals_Detected'].copy()
+    # FIXED: Only include actual animal detections, exclude 'No_Animals_Detected' records
+    species_df = camera_df[
+        (camera_df['Species'].notna()) & 
+        (camera_df['Species'] != 'No_Animals_Detected') &
+        (camera_df['Notes'] != 'No animals detected')
+    ].copy()
 
     if species_df.empty:
         print("No animal detections found in camera data.")
         return pd.DataFrame(), species_df
 
     print("\n=== SPECIES DIVERSITY ANALYSIS ===")
+    # FIXED: Report the correct number - actual animal detections, not total records
     print(f"Total animal detections: {len(species_df):,}")
     print(f"Unique species detected: {species_df['Species'].nunique()}")
 

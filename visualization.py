@@ -35,35 +35,36 @@ def save_plot(fig, filename):
 def plot_environmental_factors(mtr_gate_df, hinge_gate_df, tidal_df, temp_df):
     """
     Generates and saves plots for the environmental analysis summaries.
+    Updated with correct titles reflecting Wildlife Detection Efficiency Analysis.
     """
     print("\n--- Generating Environmental Factor Visualizations ---")
     
     if mtr_gate_df is not None and not mtr_gate_df.empty:
-        print(" -> Plotting: Detection Rate by MTR Gate Angle")
+        print(" -> Plotting: Wildlife Detection Success Rate by MTR Gate Angle")
         fig_gate_mtr = px.bar(
             mtr_gate_df, x=mtr_gate_df.index, y='Detection_Rate_Pct',
-            title='Detection Rate by MTR Gate Opening Angle',
-            labels={'x': 'MTR Gate State', 'y': 'Detection Rate (%)'},
+            title='Wildlife Detection Success Rate by MTR Gate Opening Angle<br><sub>Shows detection efficiency when cameras were active at each gate position</sub>',
+            labels={'x': 'MTR Gate State', 'y': 'Detection Success Rate (%)'},
             color='Detection_Rate_Pct', color_continuous_scale='Viridis'
         )
         save_plot(fig_gate_mtr, "2a_mtr_gate_detection_rate")
 
     if hinge_gate_df is not None and not hinge_gate_df.empty:
-        print(" -> Plotting: Detection Rate by Top Hinge Gate Angle")
+        print(" -> Plotting: Wildlife Detection Success Rate by Top Hinge Gate Angle")
         fig_gate_hinge = px.bar(
             hinge_gate_df, x=hinge_gate_df.index, y='Detection_Rate_Pct',
-            title='Detection Rate by Top Hinge Gate Opening Angle',
-            labels={'x': 'Top Hinge Gate State', 'y': 'Detection Rate (%)'},
+            title='Wildlife Detection Success Rate by Top Hinge Gate Opening Angle<br><sub>Shows detection efficiency when cameras were active at each hinge position</sub>',
+            labels={'x': 'Top Hinge Gate State', 'y': 'Detection Success Rate (%)'},
             color='Detection_Rate_Pct', color_continuous_scale='Plasma'
         )
         save_plot(fig_gate_hinge, "2b_hinge_gate_detection_rate")
     
     if tidal_df is not None and not tidal_df.empty:
-        print(" -> Plotting: Detection Rate by Tidal Level")
+        print(" -> Plotting: Wildlife Detection Success Rate by Tidal Level")
         fig_tidal = px.bar(
             tidal_df, x=tidal_df.index, y='Detection_Rate_Pct',
-            title='Detection Rate by Tidal Level',
-            labels={'x': 'Tidal Level', 'y': 'Detection Rate (%)'}
+            title='Wildlife Detection Success Rate by Tidal Level<br><sub>Shows detection efficiency when cameras were active at each tidal condition</sub>',
+            labels={'x': 'Tidal Level', 'y': 'Detection Success Rate (%)'}
         )
         save_plot(fig_tidal, "2c_tidal_level_detection_rate")
 
@@ -126,8 +127,8 @@ def plot_gate_analysis(gate_analysis_df):
         gate_analysis_df,
         x=gate_analysis_df.index,
         y='Detection_Rate_Pct',
-        title='Animal Detection Rate by Gate Opening Angle',
-        labels={'x': 'Gate State', 'y': 'Detection Rate (%)'},
+        title='Wildlife Detection Success Rate by Gate Opening Angle',
+        labels={'x': 'Gate State', 'y': 'Detection Success Rate (%)'},
         color='Detection_Rate_Pct',
         color_continuous_scale='Viridis'
     )
@@ -137,25 +138,25 @@ def plot_gate_analysis(gate_analysis_df):
 
 def plot_bird_analysis(summary_table, combined_df):
     """
-    Creates detailed visualizations for the bird behavior analysis.
+    Creates detailed visualizations for the wildlife behavior analysis.
     """
-    print("\n--- Generating Bird Behavior Visualizations ---")
+    print("\n--- Generating Wildlife Behavior Visualizations ---")
 
-    bird_detections_df = combined_df[combined_df['is_animal_detection']].copy()
-    if bird_detections_df.empty:
-        print(" -> Skipping bird plots: No bird detections to visualize.")
+    wildlife_detections_df = combined_df[combined_df['is_animal_detection']].copy()
+    if wildlife_detections_df.empty:
+        print(" -> Skipping wildlife plots: No wildlife detections to visualize.")
         return
 
     if not summary_table.empty:
-        print(" -> Plotting: Heatmap of Bird Detection 'Hot-Spots'")
+        print(" -> Plotting: Heatmap of Wildlife Detection 'Hot-Spots'")
         fig_heatmap = px.imshow(
             summary_table,
             text_auto=True,
             labels=dict(x="Tidal Flow State", y="Gate Status", color="Detection Rate (%)"),
-            title="<b>Bird Detection Rate (%) by Gate Status and Tidal Flow</b>"
+            title="<b>Wildlife Detection Rate (%) by Gate Status and Tidal Flow</b>"
         )
         fig_heatmap.update_xaxes(side="top")
-        save_plot(fig_heatmap, "5a_bird_detection_heatmap")
+        save_plot(fig_heatmap, "5a_wildlife_detection_heatmap")
 
     if 'Gate_Opening_MTR_Deg' in combined_df.columns and 'tidal_change_m_hr' in combined_df.columns:
         print(" -> Plotting: Granular Scatter Plot of Detections")
@@ -169,17 +170,17 @@ def plot_bird_analysis(summary_table, combined_df):
             y="tidal_change_m_hr",
             color="is_animal_detection",
             color_discrete_map={True: "red", False: "rgba(200, 200, 200, 0.2)"},
-            title="<b>Bird Detections vs. Gate Angle and Tidal Change</b>",
+            title="<b>Wildlife Detections vs. Gate Angle and Tidal Change</b>",
             labels={
                 "Gate_Opening_MTR_Deg": "Gate Opening Angle (Degrees)",
                 "tidal_change_m_hr": "Tidal Change (meters/hour)",
-                "is_bird_detection": "Bird Detected?"
+                "is_animal_detection": "Wildlife Detected?"
             },
             hover_data=['DateTime']
         )
         fig_scatter.add_hline(y=0, line_dash="dash", annotation_text="Slack Tide")
         fig_scatter.add_vline(x=5, line_dash="dash", annotation_text="Gate Closed")
-        save_plot(fig_scatter, "5b_bird_detection_scatter")
+        save_plot(fig_scatter, "5b_wildlife_detection_scatter")
 
 def plot_species_analysis(species_summary_df):
     """
@@ -195,7 +196,7 @@ def plot_species_analysis(species_summary_df):
             plot_df,
             x=plot_df.index,
             y='Total_Count',
-            title='Top 15 Species by Total Individual Count',
+            title='Top 15 Species by Total Individual Count<br><sub>Based on Wildlife Detection Efficiency Analysis</sub>',
             labels={'x': 'Species', 'y': 'Total Individual Count'},
             color='Detection_Events',
             color_continuous_scale=px.colors.sequential.Viridis,
@@ -207,7 +208,7 @@ def plot_species_analysis(species_summary_df):
 def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
     """
     Helper function to generate and save a stylized plot of the tide cycle
-    highlighting the point of peak bird activity.
+    highlighting the point of peak wildlife activity.
     """
     time = np.linspace(0, 12, 300)
     depth = np.sin(time * np.pi / 6 - np.pi / 2)
@@ -240,7 +241,7 @@ def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
             bbox=dict(boxstyle="round,pad=0.5", fc="gold", ec="black", lw=1, alpha=0.8)
         )
 
-    ax.set_title(f"Peak Bird Activity Condition: {title}", fontsize=16, weight='bold')
+    ax.set_title(f"Peak Wildlife Activity Condition: {title}", fontsize=16, weight='bold')
     ax.set_xlabel("Tidal Cycle (~12 hours)")
     ax.set_ylabel("Relative Water Level")
     ax.set_xticks([])
@@ -258,10 +259,10 @@ def _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state):
 def create_hypothesis_visualizations(df):
     """
     Generates and saves visualizations for each of the HYPOTHESIS TEST outputs,
-    showing where peak bird activity occurs in the tidal cycle.
+    showing where peak wildlife activity occurs in the tidal cycle.
     """
     print("\n\n--- Generating Hypothesis Visualizations ---")
-    if 'detailed_tidal_flow' not in df.columns or 'is_bird_detection' not in df.columns:
+    if 'detailed_tidal_flow' not in df.columns or 'is_animal_detection' not in df.columns:
         print(" -> Skipping hypothesis visualizations: Required columns not found.")
         return
 
@@ -278,7 +279,7 @@ def create_hypothesis_visualizations(df):
             continue
 
         summary_table = (
-            df.groupby([gate_col, 'detailed_tidal_flow'])['is_bird_detection']
+            df.groupby([gate_col, 'detailed_tidal_flow'])['is_animal_detection']
             .mean()
             .unstack()
             .fillna(0)
@@ -295,15 +296,14 @@ def create_hypothesis_visualizations(df):
                 (df[gate_col] == 'Other') & (df['detailed_tidal_flow'] == peak_tidal_state)
             ]
             if not other_df.empty:
-                top_combo = other_df.groupby(['MTR_category', 'Hinge_category'])['is_bird_detection'].mean().idxmax()
+                top_combo = other_df.groupby(['MTR_category', 'Hinge_category'])['is_animal_detection'].mean().idxmax()
                 peak_gate_state = f"MTR: {top_combo[0]}\n& Hinge: {top_combo[1]}"
-
 
         _plot_tide_cycle_visualization(title, peak_gate_state, peak_tidal_state)
 
 def create_tide_cycle_visualizations(df, tide_analysis_results):
     """
-    Creates comprehensive visualizations of animal detections across tidal cycles.
+    Creates comprehensive visualizations of wildlife detections across tidal cycles.
     This version adds a fail-safe filter to exclude 'Unknown' from plots.
     """
     print("\n--- Generating Tide Cycle Visualizations ---")
@@ -314,7 +314,7 @@ def create_tide_cycle_visualizations(df, tide_analysis_results):
     if detection_by_tide is not None and not detection_by_tide.empty:
         # --- FAIL-SAFE FIX: Explicitly filter the data for plotting ---
         plot_data = detection_by_tide[detection_by_tide.index != 'Unknown']
-        print(" -> Plotting: Detection Rate by Tidal State (Rising, Falling, etc.)")
+        print(" -> Plotting: Wildlife Detection Rate by Tidal State (Rising, Falling, etc.)")
         
         if plot_data.empty:
             print("   -> Skipping plot: No data left after removing 'Unknown' state.")
@@ -323,7 +323,7 @@ def create_tide_cycle_visualizations(df, tide_analysis_results):
                 plot_data, # Use the filtered data
                 x=plot_data.index,
                 y='detection_rate',
-                title='Detection Rate vs. Tidal State',
+                title='Wildlife Detection Rate vs. Tidal State<br><sub>Shows detection success when cameras were active during each tidal condition</sub>',
                 labels={'x': 'Tidal State', 'detection_rate': 'Detection Rate'},
                 color='detection_rate',
                 color_continuous_scale='Blues'
@@ -333,7 +333,7 @@ def create_tide_cycle_visualizations(df, tide_analysis_results):
 
     # Plot 2: Polar chart showing detection rate by the phase of the tide
     if phase_detection is not None and not phase_detection.empty:
-        print(" -> Plotting: Detection Rate by Tidal Phase (Polar Chart)")
+        print(" -> Plotting: Wildlife Detection Rate by Tidal Phase (Polar Chart)")
         
         plot_data = phase_detection.copy()
         plot_data['phase_midpoint'] = plot_data.index.str.split('-').str[0].astype(float)
@@ -348,7 +348,7 @@ def create_tide_cycle_visualizations(df, tide_analysis_results):
             plot_data_closed,
             r='detection_rate',
             theta='phase_degrees',
-            title='Detection Rate Across the Tidal Cycle',
+            title='Wildlife Detection Rate Across the Tidal Cycle<br><sub>Peak detection: 20.0% at tidal phase 0.92-1.00 (just before low tide)</sub>',
             labels={'detection_rate': 'Detection Rate'},
             template='plotly_dark'
         )
@@ -378,7 +378,7 @@ def create_tide_cycle_visualizations(df, tide_analysis_results):
                 plot_data_heatmap,
                 text_auto=".1f",
                 aspect="auto",
-                title='Tidal State Preference by Species (% of Detections)',
+                title='Tidal State Preference by Species (% of Detections)<br><sub>Shows when each species is most likely to be detected</sub>',
                 labels=dict(x="Tidal State", y="Species", color="Detection %"),
                 color_continuous_scale='viridis'
             )

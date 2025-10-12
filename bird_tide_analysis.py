@@ -11,14 +11,17 @@ def analyze_bird_tide_gate_behavior(combined_df):
     """
     print("\n\n=== WILDLIFE & TIDE GATE BEHAVIOR ANALYSIS ===")
     
-    # UPDATED: Include ALL species detected by cameras (not just birds)
-    # Get all unique species except 'No_Animals_Detected'
-    all_detected_species = combined_df[combined_df['has_camera_data'] & (combined_df['Species'] != 'No_Animals_Detected')]['Species'].unique()
+    # FIXED: Create detection flag correctly - only actual animals, not no-animal observations
+    combined_df['is_animal_detection'] = (
+        combined_df['has_camera_data'] &
+        combined_df['Species'].notna() &
+        (combined_df['Notes'] != 'No animals detected')
+    )
+    
+    # Get all unique species except null/nan values
+    all_detected_species = combined_df[combined_df['is_animal_detection']]['Species'].dropna().unique()
     
     print(f"Including all detected species: {list(all_detected_species)}")
-    
-    # Create detection flag for ALL animals (not just birds)
-    combined_df['is_animal_detection'] = combined_df['Species'].isin(all_detected_species)
     
     total_animal_detections = combined_df['is_animal_detection'].sum()
     if total_animal_detections == 0:
@@ -41,7 +44,8 @@ def analyze_bird_tide_gate_behavior(combined_df):
         ]
         choices = ['Rising', 'Falling', 'High Slack', 'Low Slack']
         
-        combined_df['detailed_tidal_flow'] = np.select(conditions, choices, default=np.nan)
+        choices_obj = [np.array(choice, dtype=object) for choice in choices]
+        combined_df['detailed_tidal_flow'] = np.select(conditions, choices_obj, default=np.nan)
         
         print(f"Rows with indeterminate tidal flow: {combined_df['detailed_tidal_flow'].isna().sum()}")
         

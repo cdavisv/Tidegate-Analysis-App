@@ -11,11 +11,16 @@ def run_gate_combination_analysis(combined_df):
     """
     print("\n\n--- GATE COMBINATION ANALYSIS (All Animals) ---")
     
-    # UPDATED: Include ALL species detected by cameras (not just birds)
+    # FIXED: Create detection flag correctly - only actual animals, not no-animal observations
     if 'Species' in combined_df.columns:
-        # Get all unique species except 'No_Animals_Detected'
-        all_detected_species = combined_df[combined_df['has_camera_data'] & (combined_df['Species'] != 'No_Animals_Detected')]['Species'].unique()
-        combined_df['is_animal_detection'] = combined_df['Species'].isin(all_detected_species)
+        combined_df['is_animal_detection'] = (
+            combined_df['has_camera_data'] &
+            combined_df['Species'].notna() &
+            (combined_df['Notes'] != 'No animals detected')
+        )
+        
+        # Get all unique species except null/nan values
+        all_detected_species = combined_df[combined_df['is_animal_detection']]['Species'].dropna().unique()
         print(f"Including all detected species: {list(all_detected_species)}")
     else:
         print("Note: 'Species' column not found. Skipping animal detection analysis.")
@@ -30,7 +35,8 @@ def run_gate_combination_analysis(combined_df):
             (combined_df['tidal_change_m_hr'].abs() <= 0.05) & (combined_df['Depth'] >= combined_df['Depth'].median()),
             (combined_df['tidal_change_m_hr'].abs() <= 0.05) & (combined_df['Depth'] < combined_df['Depth'].median())
         ]
-        combined_df['detailed_tidal_flow'] = np.select(conditions, ['Rising', 'Falling', 'High Slack', 'Low Slack'], default=np.nan)
+        choices_obj = [np.array(choice, dtype=object) for choice in ['Rising', 'Falling', 'High Slack', 'Low Slack']]
+        combined_df['detailed_tidal_flow'] = np.select(conditions, choices_obj, default=np.nan)
     else:
         print("Note: 'Depth' column not found. Skipping tidal flow analysis.")
         combined_df['detailed_tidal_flow'] = np.nan

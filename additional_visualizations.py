@@ -19,15 +19,15 @@ def save_plot(fig, filename):
 
 def create_method_comparison_visualizations(comprehensive_results, combined_df):
     """
-    Creates visualizations comparing the original vs corrected analysis methods.
+    Creates visualizations comparing Camera Activity Pattern vs Wildlife Detection Efficiency methods.
     """
     print("\n--- Generating Method Comparison Visualizations ---")
     
     # 1. Data Overview Dashboard
     create_data_overview_dashboard(comprehensive_results)
     
-    # 2. Detection Rate Comparison Charts
-    create_detection_rate_comparison(comprehensive_results, combined_df)
+    # 2. Analysis Method Comparison Charts
+    create_analysis_method_comparison(comprehensive_results, combined_df)
     
     # 3. Species Detection Patterns
     create_species_pattern_comparison(comprehensive_results)
@@ -86,76 +86,86 @@ def create_data_overview_dashboard(comprehensive_results):
     
     save_plot(fig, "7a_data_overview_dashboard")
 
-def create_detection_rate_comparison(comprehensive_results, combined_df):
+def create_analysis_method_comparison(comprehensive_results, combined_df):
     """
-    Creates side-by-side comparison of detection rates using both methods.
+    Creates side-by-side comparison of Camera Activity vs Detection Efficiency methods.
     """
-    print(" -> Creating: Detection Rate Comparison Charts")
+    print(" -> Creating: Analysis Method Comparison Charts")
     
     # Get gate analysis data for comparison
     if 'Gate_Opening_MTR_Deg' not in combined_df.columns:
         print("   -> Skipping gate comparison: MTR gate data not available")
         return
     
-    # Original method rates
+    # Camera Activity Pattern rates - FIXED: Handle string boolean values
     combined_df_temp = combined_df.copy()
+    # Convert string booleans to actual booleans
+    if combined_df_temp['has_camera_data'].dtype == 'object':
+        combined_df_temp['has_camera_data'] = combined_df_temp['has_camera_data'] == 'True'
+    
     mtr_bins = [-1, 5, 39, 63, 88]
     mtr_labels = ['Closed (0-5°)', 'Partially Open (5-39°)', 'Open (39-63°)', 'Wide Open (>63°)']
     combined_df_temp['gate_category'] = pd.cut(combined_df_temp['Gate_Opening_MTR_Deg'], bins=mtr_bins, labels=mtr_labels)
     
-    original_rates = combined_df_temp.groupby('gate_category', observed=True)['has_camera_data'].mean() * 100
+    activity_rates = combined_df_temp.groupby('gate_category', observed=True)['has_camera_data'].mean() * 100
     
-    # Corrected method rates
+    # Wildlife Detection Efficiency rates
     camera_obs = combined_df_temp[combined_df_temp['has_camera_data']].copy()
-    camera_obs['animal_detected'] = (camera_obs['Species'] != 'No_Animals_Detected').astype(int)
-    corrected_rates = camera_obs.groupby('gate_category', observed=True)['animal_detected'].mean() * 100
+    camera_obs['animal_detected'] = (
+        camera_obs['Species'].notna() &
+        (camera_obs['Notes'] != 'No animals detected')
+    ).astype(int)
+    efficiency_rates = camera_obs.groupby('gate_category', observed=True)['animal_detected'].mean() * 100
     
     # Create comparison chart
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=("Original Method<br>(All Time Periods)", "Corrected Method<br>(Camera Active Only)"),
+        subplot_titles=(
+            "Camera Activity Pattern Analysis<br>(When cameras were active)", 
+            "Wildlife Detection Efficiency Analysis<br>(When cameras detected animals)"
+        ),
         specs=[[{"secondary_y": False}, {"secondary_y": False}]]
     )
     
-    # Original method
+    # Camera Activity Pattern method
     fig.add_trace(
         go.Bar(
-            x=original_rates.index,
-            y=original_rates.values,
-            name="Original Method",
+            x=activity_rates.index,
+            y=activity_rates.values,
+            name="Camera Activity Rate",
             marker_color="lightcoral",
-            text=[f"{val:.1f}%" for val in original_rates.values],
+            text=[f"{val:.1f}%" for val in activity_rates.values],
             textposition='auto'
         ),
         row=1, col=1
     )
     
-    # Corrected method
+    # Wildlife Detection Efficiency method
     fig.add_trace(
         go.Bar(
-            x=corrected_rates.index,
-            y=corrected_rates.values,
-            name="Corrected Method",
+            x=efficiency_rates.index,
+            y=efficiency_rates.values,
+            name="Detection Success Rate",
             marker_color="lightgreen",
-            text=[f"{val:.1f}%" for val in corrected_rates.values],
+            text=[f"{val:.1f}%" for val in efficiency_rates.values],
             textposition='auto'
         ),
         row=1, col=2
     )
     
     fig.update_layout(
-        title="<b>Detection Rate Comparison: Original vs Corrected Methods</b>",
+        title="<b>Analysis Method Comparison: Camera Activity vs Detection Efficiency</b>",
         height=600,
         template="plotly_white",
         showlegend=False
     )
     
-    fig.update_yaxes(title_text="Detection Rate (%)", row=1, col=1)
-    fig.update_yaxes(title_text="Detection Rate (%)", row=1, col=2)
+    fig.update_yaxes(title_text="Camera Activity Rate (%)", row=1, col=1)
+    fig.update_yaxes(title_text="Detection Success Rate (%)", row=1, col=2)
     fig.update_xaxes(title_text="MTR Gate Position", row=1, col=1)
     fig.update_xaxes(title_text="MTR Gate Position", row=1, col=2)
     
-    save_plot(fig, "7b_detection_rate_comparison")
+    save_plot(fig, "7b_analysis_method_comparison")
 
 def create_species_pattern_comparison(comprehensive_results):
     """
@@ -163,40 +173,40 @@ def create_species_pattern_comparison(comprehensive_results):
     """
     print(" -> Creating: Species Pattern Comparison")
     
-    orig_species = comprehensive_results['original']['species_summary'].head(10)
-    corr_species = comprehensive_results['corrected']['species_summary'].head(10)
+    activity_species = comprehensive_results['camera_activity']['species_summary'].head(10)
+    efficiency_species = comprehensive_results['detection_efficiency']['species_summary'].head(10)
     
     # Create side-by-side species comparison
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=("Species Counts<br>(Original Method)", "Species Detection Rates<br>(Corrected Method)"),
+        subplot_titles=("Species Counts<br>(Camera Activity Method)", "Species Detection Rates<br>(Detection Efficiency Method)"),
         specs=[[{"type": "bar"}, {"type": "bar"}]]
     )
     
-    # Original method - total counts
+    # Camera Activity method - total counts
     fig.add_trace(
         go.Bar(
-            y=orig_species.index,
-            x=orig_species['Total_Count'],
+            y=activity_species.index,
+            x=activity_species['Total_Count'],
             orientation='h',
             name="Total Count",
             marker_color="lightcoral",
-            text=orig_species['Total_Count'].astype(int),
+            text=activity_species['Total_Count'].astype(int),
             textposition='auto'
         ),
         row=1, col=1
     )
     
-    # Corrected method - detection rates
-    if 'Detection_Rate_Pct' in corr_species.columns:
+    # Detection Efficiency method - detection rates
+    if 'Detection_Rate_Pct' in efficiency_species.columns:
         fig.add_trace(
             go.Bar(
-                y=corr_species.index,
-                x=corr_species['Detection_Rate_Pct'],
+                y=efficiency_species.index,
+                x=efficiency_species['Detection_Rate_Pct'],
                 orientation='h',
                 name="Detection Rate %",
                 marker_color="lightgreen",
-                text=[f"{val:.1f}%" for val in corr_species['Detection_Rate_Pct']],
+                text=[f"{val:.1f}%" for val in efficiency_species['Detection_Rate_Pct']],
                 textposition='auto'
             ),
             row=1, col=2
@@ -216,12 +226,16 @@ def create_species_pattern_comparison(comprehensive_results):
 
 def create_environmental_effectiveness_charts(combined_df):
     """
-    Creates charts showing environmental factor effectiveness.
+    Creates charts showing environmental factor effectiveness during camera operations.
     """
     print(" -> Creating: Environmental Factor Effectiveness Charts")
     
-    # Filter to camera observations only
-    camera_obs = combined_df[combined_df['has_camera_data']].copy()
+    # Filter to camera observations only - FIXED: Handle string boolean values
+    combined_df_temp = combined_df.copy()
+    if combined_df_temp['has_camera_data'].dtype == 'object':
+        combined_df_temp['has_camera_data'] = combined_df_temp['has_camera_data'] == 'True'
+    
+    camera_obs = combined_df_temp[combined_df_temp['has_camera_data']].copy()
     
     if camera_obs.empty:
         print("   -> No camera observations for environmental analysis")
@@ -230,15 +244,15 @@ def create_environmental_effectiveness_charts(combined_df):
     # Create effectiveness metrics
     fig = make_subplots(
         rows=2, cols=2,
-        subplot_titles=("Gate Position Activity", "Tidal Level Activity", "Temperature Activity", "Monthly Activity"),
+        subplot_titles=("MTR Gate Position Activity", "Tidal Level Activity", "Temperature Activity", "Monthly Activity"),
         specs=[[{"type": "bar"}, {"type": "bar"}],
                [{"type": "bar"}, {"type": "bar"}]]
     )
     
-    # Gate effectiveness
+    # Gate effectiveness - Shows camera operational patterns
     if 'Gate_Opening_MTR_Deg' in camera_obs.columns:
         mtr_bins = [-1, 5, 39, 63, 88]
-        mtr_labels = ['Closed', 'Partially Open', 'Open', 'Wide Open']
+        mtr_labels = ['Closed (0-5°)', 'Partially Open (5-39°)', 'Open (39-63°)', 'Wide Open (>63°)']
         camera_obs['gate_category'] = pd.cut(camera_obs['Gate_Opening_MTR_Deg'], bins=mtr_bins, labels=mtr_labels)
         
         gate_counts = camera_obs['gate_category'].value_counts()
@@ -246,7 +260,7 @@ def create_environmental_effectiveness_charts(combined_df):
             go.Bar(
                 x=gate_counts.index,
                 y=gate_counts.values,
-                name="Gate Activity",
+                name="MTR Gate Activity",
                 marker_color="orange",
                 text=gate_counts.values,
                 textposition='auto'
@@ -254,7 +268,7 @@ def create_environmental_effectiveness_charts(combined_df):
             row=1, col=1
         )
     
-    # Tidal effectiveness
+    # Tidal effectiveness - Shows when cameras were most active
     if 'Depth' in camera_obs.columns:
         quantiles = camera_obs['Depth'].quantile([0.25, 0.75])
         camera_obs['tide_level'] = pd.cut(
@@ -313,7 +327,7 @@ def create_environmental_effectiveness_charts(combined_df):
     )
     
     fig.update_layout(
-        title="<b>Environmental Factor Effectiveness During Camera Operations</b>",
+        title="<b>Camera Operational Patterns During Monitoring</b><br><sub>Shows when cameras were most active, not detection success rates</sub>",
         height=800,
         template="plotly_white",
         showlegend=False
@@ -323,11 +337,16 @@ def create_environmental_effectiveness_charts(combined_df):
 
 def create_temporal_analysis_charts(combined_df):
     """
-    Creates temporal analysis showing activity patterns over time.
+    Creates temporal analysis showing camera activity patterns over time.
     """
     print(" -> Creating: Temporal Analysis Charts")
     
-    camera_obs = combined_df[combined_df['has_camera_data']].copy()
+    # FIXED: Handle string boolean values
+    combined_df_temp = combined_df.copy()
+    if combined_df_temp['has_camera_data'].dtype == 'object':
+        combined_df_temp['has_camera_data'] = combined_df_temp['has_camera_data'] == 'True'
+    
+    camera_obs = combined_df_temp[combined_df_temp['has_camera_data']].copy()
     
     if camera_obs.empty:
         print("   -> No camera observations for temporal analysis")
@@ -340,7 +359,7 @@ def create_temporal_analysis_charts(combined_df):
     
     fig = make_subplots(
         rows=2, cols=2,
-        subplot_titles=("Hourly Activity Pattern", "Day of Week Activity", "Monthly Activity Trend", "Detection Timeline"),
+        subplot_titles=("Hourly Camera Activity", "Daily Camera Activity", "Monthly Camera Activity", "Detection Timeline"),
         specs=[[{"type": "bar"}, {"type": "bar"}],
                [{"type": "scatter"}, {"type": "scatter"}]]
     )
@@ -394,23 +413,29 @@ def create_temporal_analysis_charts(combined_df):
         row=2, col=1
     )
     
-    # Timeline scatter
-    camera_obs_sample = camera_obs.sample(min(100, len(camera_obs)))  # Sample for better visualization
-    fig.add_trace(
-        go.Scatter(
-            x=camera_obs_sample['DateTime'],
-            y=camera_obs_sample['Species'],
-            mode='markers',
-            name="Detection Timeline",
-            marker=dict(size=8, color="red", opacity=0.7),
-            text=camera_obs_sample['Species'],
-            hovertemplate="<b>%{text}</b><br>%{x}<extra></extra>"
-        ),
-        row=2, col=2
-    )
+    # Timeline scatter - Only show actual species detections
+    species_obs = camera_obs[
+        (camera_obs['Species'].notna()) & 
+        (camera_obs['Notes'] != 'No animals detected')
+    ]
+    
+    if not species_obs.empty:
+        species_sample = species_obs.sample(min(100, len(species_obs)))  # Sample for better visualization
+        fig.add_trace(
+            go.Scatter(
+                x=species_sample['DateTime'],
+                y=species_sample['Species'],
+                mode='markers',
+                name="Animal Detection Timeline",
+                marker=dict(size=8, color="red", opacity=0.7),
+                text=species_sample['Species'],
+                hovertemplate="<b>%{text}</b><br>%{x}<extra></extra>"
+            ),
+            row=2, col=2
+        )
     
     fig.update_layout(
-        title="<b>Temporal Activity Patterns During Camera Operations</b>",
+        title="<b>Temporal Camera Activity Patterns</b><br><sub>Shows when cameras were operational during monitoring</sub>",
         height=800,
         template="plotly_white",
         showlegend=False
@@ -429,18 +454,33 @@ def create_camera_performance_dashboard(combined_df):
     """
     print(" -> Creating: Camera Performance Dashboard")
     
-    camera_obs = combined_df[combined_df['has_camera_data']].copy()
-    all_data = combined_df.copy()
+    # FIXED: Handle string boolean values
+    combined_df_temp = combined_df.copy()
+    if combined_df_temp['has_camera_data'].dtype == 'object':
+        combined_df_temp['has_camera_data'] = combined_df_temp['has_camera_data'] == 'True'
+    
+    camera_obs = combined_df_temp[combined_df_temp['has_camera_data']].copy()
+    all_data = combined_df_temp.copy()
     
     # Calculate performance metrics
     total_periods = len(all_data)
     camera_periods = len(camera_obs)
     activity_rate = (camera_periods / total_periods) * 100
     
+    # Calculate actual detection success rate
+    if not camera_obs.empty:
+        animal_detections = len(camera_obs[
+            (camera_obs['Species'].notna()) & 
+            (camera_obs['Notes'] != 'No animals detected')
+        ])
+        detection_success = (animal_detections / camera_periods) * 100
+    else:
+        detection_success = 0
+    
     # Create performance metrics visualization
     fig = make_subplots(
         rows=2, cols=2,
-        subplot_titles=("Camera Activity Rate", "Detection Success Rate", "Species Diversity", "Data Quality Metrics"),
+        subplot_titles=("Camera Activity Rate", "Wildlife Detection Success Rate", "Species Diversity", "Data Quality Metrics"),
         specs=[[{"type": "indicator"}, {"type": "indicator"}],
                [{"type": "pie"}, {"type": "bar"}]]
     )
@@ -472,46 +512,50 @@ def create_camera_performance_dashboard(combined_df):
     )
     
     # Detection success rate gauge
-    if not camera_obs.empty:
-        detection_success = 100.0  # Based on your 100% detection rate during camera operations
-        fig.add_trace(
-            go.Indicator(
-                mode="gauge+number",
-                value=detection_success,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Detection Success Rate (%)"},
-                gauge={
-                    'axis': {'range': [None, 100]},
-                    'bar': {'color': "green"},
-                    'steps': [
-                        {'range': [0, 60], 'color': "lightgray"},
-                        {'range': [60, 80], 'color': "yellow"},
-                        {'range': [80, 100], 'color': "lightgreen"}
-                    ]
-                }
-            ),
-            row=1, col=2
-        )
+    fig.add_trace(
+        go.Indicator(
+            mode="gauge+number",
+            value=detection_success,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Wildlife Detection Success Rate (%)"},
+            gauge={
+                'axis': {'range': [None, 20]},  # Adjusted range for realistic values
+                'bar': {'color': "green"},
+                'steps': [
+                    {'range': [0, 2], 'color': "lightgray"},
+                    {'range': [2, 5], 'color': "yellow"},
+                    {'range': [5, 20], 'color': "lightgreen"}
+                ]
+            }
+        ),
+        row=1, col=2
+    )
     
-    # Species diversity pie chart
+    # Species diversity pie chart - Only use actual species detections
     if not camera_obs.empty:
-        top_species = camera_obs['Species'].value_counts().head(8)
-        others_count = camera_obs['Species'].value_counts().iloc[8:].sum() if len(camera_obs['Species'].value_counts()) > 8 else 0
+        species_obs = camera_obs[
+            (camera_obs['Species'].notna()) & 
+            (camera_obs['Notes'] != 'No animals detected')
+        ]
         
-        if others_count > 0:
-            species_data = pd.concat([top_species, pd.Series({'Others': others_count})])
-        else:
-            species_data = top_species
-        
-        fig.add_trace(
-            go.Pie(
-                labels=species_data.index,
-                values=species_data.values,
-                textinfo='label+percent',
-                textposition='inside'
-            ),
-            row=2, col=1
-        )
+        if not species_obs.empty:
+            top_species = species_obs['Species'].value_counts().head(8)
+            others_count = species_obs['Species'].value_counts().iloc[8:].sum() if len(species_obs['Species'].value_counts()) > 8 else 0
+            
+            if others_count > 0:
+                species_data = pd.concat([top_species, pd.Series({'Others': others_count})])
+            else:
+                species_data = top_species
+            
+            fig.add_trace(
+                go.Pie(
+                    labels=species_data.index,
+                    values=species_data.values,
+                    textinfo='label+percent',
+                    textposition='inside'
+                ),
+                row=2, col=1
+            )
     
     # Data quality metrics
     if 'Depth' in all_data.columns:
@@ -555,7 +599,7 @@ def create_all_additional_visualizations(comprehensive_results, combined_df):
     print("\n✅ All additional visualizations completed!")
     print("📁 Check the 'output_plots' folder for all generated visualizations:")
     print("   • 7a_data_overview_dashboard.html")
-    print("   • 7b_detection_rate_comparison.html") 
+    print("   • 7b_analysis_method_comparison.html") 
     print("   • 7c_species_pattern_comparison.html")
     print("   • 7d_environmental_effectiveness.html")
     print("   • 7e_temporal_analysis.html")
