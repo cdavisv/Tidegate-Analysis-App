@@ -1,4 +1,19 @@
-# environmental_analysis.py
+"""
+Environmental factor analysis module for wildlife detection.
+
+This module analyzes how environmental variables influence wildlife detection
+success during camera operation periods. Unlike camera activity analysis, this
+module focuses strictly on detection efficiency.
+
+Environmental factors analyzed include:
+- Tide gate positions
+- Tidal depth levels
+- Air temperature ranges
+
+All analyses compute detection rates using a consistent and explicit animal
+detection definition to avoid misclassification and ensure reproducibility.
+"""
+
 
 import pandas as pd
 from scipy import stats

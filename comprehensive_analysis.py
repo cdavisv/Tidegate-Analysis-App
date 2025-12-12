@@ -1,4 +1,25 @@
-# comprehensive_analysis.py
+"""
+Comprehensive dual-framework analysis module.
+
+This module implements the core analytical logic for the project by running
+two complementary analysis pipelines:
+
+1. Camera Activity Pattern Analysis
+   - Treats all time periods as potential monitoring intervals.
+   - Measures when cameras were operational relative to environmental conditions.
+
+2. Wildlife Detection Efficiency Analysis
+   - Restricts analysis to camera-active periods.
+   - Measures how often animals were detected when cameras were operating.
+
+The module produces species diversity summaries and environmental factor analyses
+for both methods, enabling direct comparison of operational bias versus biological
+detection success.
+
+Results from this module form the backbone of the final comparison and reporting
+pipeline.
+"""
+
 
 import pandas as pd
 import numpy as np

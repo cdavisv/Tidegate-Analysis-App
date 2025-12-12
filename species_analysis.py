@@ -1,4 +1,18 @@
-# species_analysis.py
+"""
+Species diversity and preference analysis module.
+
+This module focuses on analyzing species diversity using standardized species
+names and properly aggregated detection counts.
+
+Key outputs include:
+- Total individual counts per species
+- Detection event counts
+- Validation against duplicate species naming
+- Optional environmental preference summaries
+
+All analyses explicitly exclude no-animal observations to ensure biological
+interpretability.
+"""
 
 import pandas as pd
 

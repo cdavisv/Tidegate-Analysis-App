@@ -1,4 +1,28 @@
-# additional_visualizations.py
+"""
+Additional visualization module for the comprehensive wildlife monitoring analysis.
+
+This module generates advanced interactive Plotly dashboards and comparison charts
+that contrast the two primary analytical frameworks used in the project:
+
+1. Camera Activity Pattern Analysis
+   - Examines when cameras were operational across all monitoring periods.
+   - Focuses on equipment performance, data coverage, and environmental bias.
+
+2. Wildlife Detection Efficiency Analysis
+   - Examines how successful cameras were at detecting animals during active periods.
+   - Focuses on biological and behavioral detection success.
+
+The visualizations include:
+- Dataset overview dashboards
+- Method comparison charts
+- Species detection pattern comparisons
+- Environmental effectiveness charts
+- Temporal activity analyses
+- Camera performance summaries
+
+All plots are saved as interactive HTML files for reproducible exploration.
+"""
+
 
 import pandas as pd
 import plotly.express as px

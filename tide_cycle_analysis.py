@@ -1,4 +1,22 @@
-# tide_cycle_analysis.py
+"""
+Tidal cycle and phase-based wildlife detection analysis module.
+
+This module analyzes wildlife detection patterns across the full tidal cycle,
+moving beyond static tidal categories to include continuous tidal phase modeling.
+It explicitly excludes unknown or indeterminate tidal states to ensure valid
+ecological interpretation.
+
+Key capabilities:
+- Classification of tidal states (rising, falling, high slack, low slack)
+- Detection rate analysis using actual animal detections (not camera activity)
+- Statistical testing of detection differences across tidal states
+- Phase-based tidal analysis using normalized water depth
+- Species-specific tidal preference analysis
+
+This module supports fine-grained behavioral hypotheses about when wildlife is
+most likely to be detected relative to tidal movement and phase.
+"""
+
 
 import pandas as pd
 import numpy as np

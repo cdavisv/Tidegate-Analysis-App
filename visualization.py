@@ -1,4 +1,21 @@
-# visualization.py
+"""
+Visualization and reporting module for wildlife detection analyses.
+
+This module generates publication-quality and exploratory visualizations for
+all stages of the analysis pipeline, including species summaries, environmental
+effects, gate interactions, tidal cycle dynamics, and hypothesis testing outputs.
+
+Features:
+- Interactive Plotly visualizations (HTML + optional PNG export)
+- Safe plotting with data availability checks
+- Visualization of both descriptive and inferential analysis results
+- Hypothesis-driven tidal cycle diagrams
+- Heatmaps, bar charts, time series, scatter plots, and polar plots
+
+All plots are saved to disk to support reproducibility, reporting, and external
+review.
+"""
+
 
 import pandas as pd
 import matplotlib.pyplot as plt

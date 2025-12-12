@@ -1,4 +1,21 @@
-# bird_tide_analysis.py
+"""
+Wildlife, tide, and gate interaction analysis module.
+
+This module analyzes animal detection patterns across tidal flow states and
+tide gate configurations. Unlike earlier bird-only approaches, this version
+explicitly includes all detected wildlife, including birds, mammals, and
+unknown species.
+
+Key features:
+- Robust animal detection flag creation
+- Detailed tidal flow classification (rising, falling, slack tides)
+- Gate position categorization
+- Detection rate summaries across environmental states
+
+The analysis is designed to support hypothesis testing about how tide dynamics
+and gate operations influence wildlife movement and detection probability.
+"""
+
 
 import pandas as pd
 import numpy as np

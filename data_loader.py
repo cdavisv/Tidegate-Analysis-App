@@ -1,4 +1,21 @@
-# data_loader.py
+"""
+Camera data loading, normalization, and species expansion module.
+
+This module loads raw camera CSV data and transforms it into a standardized,
+analysis-ready format. It handles datasets where multiple species may be recorded
+in a single observation row.
+
+Major responsibilities:
+- Dynamic detection of species and count columns
+- Expansion of wide-format species data into long format
+- Standardization of species names
+- Preservation of no-animal camera observations
+- Validation of timestamps and structural integrity
+
+The output is suitable for downstream merging, environmental analysis, and
+species-level modeling.
+"""
+
 
 import pandas as pd
 

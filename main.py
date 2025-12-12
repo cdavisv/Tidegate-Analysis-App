@@ -1,4 +1,20 @@
-# main.py - Updated with Corrected Analysis Naming
+
+"""
+Main execution pipeline for the comprehensive wildlife monitoring analysis.
+
+This script orchestrates the entire workflow, including:
+- Data loading and validation
+- Camera and sensor data integration
+- Dual-framework comprehensive analysis
+- Specialized environmental and gate interaction analyses
+- Visualization generation
+- Summary report output
+
+The pipeline is designed to compare Camera Activity Pattern Analysis with
+Wildlife Detection Efficiency Analysis to clearly separate operational bias
+from biological detection behavior.
+"""
+
 
 import pandas as pd
 import data_loader
@@ -12,6 +28,9 @@ import tide_cycle_analysis
 import visualization
 
 # --- Configuration ---
+# Adjust CAMERA_DATA_PATH and WATER_DATA_PATH to your files
+
+#Example files
 #CAMERA_DATA_PATH = 'willanch_camera_final.csv'
 #WATER_DATA_PATH = 'willanch_sensor_final.csv'
 #CAMERA_DATA_PATH = 'Palouse_Combined_Camera_Full_Imageset.csv'  # Next camera data path

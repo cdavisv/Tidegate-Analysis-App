@@ -1,3 +1,13 @@
+"""
+CSV field correction utility.
+
+This script updates CSV files by inserting 'Unknown' species labels when
+species fields are empty but corresponding count fields indicate animal presence.
+
+It is designed as a command-line utility for cleaning legacy or inconsistently
+formatted datasets prior to ingestion into the main analysis pipeline.
+"""
+
 import pandas as pd
 import sys
 

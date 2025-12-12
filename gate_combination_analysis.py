@@ -1,4 +1,19 @@
-# gate_combination_analysis.py
+"""
+Combined tide gate interaction analysis module.
+
+This module analyzes wildlife detection patterns across combined gate states,
+considering both MTR and top-hinge gate configurations simultaneously.
+
+Key features:
+- Unified animal detection flag
+- Detailed tidal flow classification
+- Multiple gate combination hypotheses
+- Pivot-table-based detection rate summaries
+
+The analysis supports complex interaction hypotheses about how multiple gate
+mechanisms jointly influence wildlife movement and detection probability.
+"""
+
 
 import pandas as pd
 import numpy as np

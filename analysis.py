@@ -1,4 +1,21 @@
-# analysis.py
+"""
+Statistical analysis module for tide gate and wildlife detection modeling.
+
+This module provides hypothesis-driven statistical analyses to quantify how
+environmental and operational factors influence wildlife detection outcomes.
+It is designed to complement descriptive analyses by adding inferential
+statistics and predictive modeling.
+
+Analyses included:
+- Gate impact analysis using binned gate opening angles and chi-square testing
+- Temporal pattern analysis of hourly and seasonal detection rates
+- Generalized Linear Model (GLM) for predicting detection probability based on
+  environmental covariates and time-of-day effects
+
+The module assumes that the input DataFrame has already been merged and cleaned,
+with consistent datetime handling and camera activity indicators.
+"""
+
 
 import pandas as pd
 import numpy as np

@@ -1,4 +1,21 @@
-# data_combiner.py
+"""
+Camera and environmental data integration module.
+
+This module combines camera observation data with water and environmental sensor
+data by constructing a unified timeline and interpolating numeric water variables
+within a controlled temporal window.
+
+Key responsibilities:
+- Timestamp normalization and deduplication
+- Time-based interpolation of water sensor data
+- Outer merging of camera and sensor datasets
+- Robust identification of camera observation periods
+- Explicit separation of camera activity from animal detection events
+
+The output dataset supports both operational and biological analyses without
+misclassifying non-detection camera observations.
+"""
+
 
 import pandas as pd
 import numpy as np
