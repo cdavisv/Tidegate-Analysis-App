@@ -14,177 +14,220 @@ The pipeline is designed to compare Camera Activity Pattern Analysis with
 Wildlife Detection Efficiency Analysis to clearly separate operational bias
 from biological detection behavior.
 """
-
-
+import streamlit as st
 import pandas as pd
+import tempfile
+import os
+import glob
+import io
+import contextlib
+
 import data_loader
 import data_combiner
-import species_analysis  # Keep original for compatibility
-import environmental_analysis  # Keep original for compatibility
-import comprehensive_analysis  # Updated comprehensive analysis
+import species_analysis
+import environmental_analysis
+import comprehensive_analysis
 import gate_combination_analysis
 import bird_tide_analysis
 import tide_cycle_analysis
 import visualization
+import additional_visualizations
 
-# --- Configuration ---
-# Adjust CAMERA_DATA_PATH and WATER_DATA_PATH to your files
 
-#Example files
-#CAMERA_DATA_PATH = 'willanch_camera_final.csv'
-#WATER_DATA_PATH = 'willanch_sensor_final.csv'
-#CAMERA_DATA_PATH = 'Palouse_Combined_Camera_Full_Imageset.csv'  # Next camera data path
-WATER_DATA_PATH = 'Palouse_Tide_Data_Combined_newest.csv'  # Next water data path
-CAMERA_DATA_PATH = 'Larson_Camera_Final.csv' 
-#WATER_DATA_PATH = 
+# -----------------------------
+# Streamlit Page Config
+# -----------------------------
+st.set_page_config(
+    page_title="Comprehensive Wildlife & Tide Analysis",
+    layout="wide"
+)
 
-def main():
+st.title("📊 Comprehensive Wildlife & Environmental Analysis")
+st.markdown(
     """
-    Main function to run both Camera Activity Pattern and Wildlife Detection Efficiency analysis pipelines.
+    This application runs the **full camera activity, wildlife detection,
+    and environmental analysis pipeline** using camera trap and water/tide data.
+
+    All printed output from the analysis pipeline is captured and displayed below.
     """
-    print("--- Starting Comprehensive Analysis Pipeline ---")
+)
 
-    # 1. Load Data
-    camera_df = data_loader.load_and_prepare_camera_data(CAMERA_DATA_PATH)
-    water_df = data_loader.load_and_prepare_water_data(WATER_DATA_PATH)
+# -----------------------------
+# File Upload Section
+# -----------------------------
+st.header("1️⃣ Upload Input Data")
 
-    # Check if the data loading failed before continuing
-    if camera_df is None:
-        print("\nCRITICAL: Camera data loading failed or returned no data. Cannot proceed with analysis. Exiting.")
+camera_file = st.file_uploader(
+    "Upload Camera CSV",
+    type=["csv"],
+    help="Camera detections and activity data"
+)
+
+water_file = st.file_uploader(
+    "Upload Water / Tide CSV",
+    type=["csv"],
+    help="Tide, gate, or environmental sensor data"
+)
+
+run_analysis = st.button("🚀 Run Full Analysis", type="primary")
+
+
+# -----------------------------
+# Helpers for Plot Rendering
+# -----------------------------
+def render_plot_html(filepath, height=700):
+    with open(filepath, "r", encoding="utf-8") as f:
+        html = f.read()
+    st.components.v1.html(html, height=height, scrolling=True)
+
+
+def render_plot_section(title, patterns):
+    st.subheader(title)
+    files = []
+    for p in patterns:
+        files.extend(glob.glob(p))
+    files = sorted(set(files))
+
+    if not files:
+        st.info("No plots generated for this section.")
         return
-    if water_df is None:
-        print("\nCRITICAL: Water data loading failed or returned no data. Cannot proceed with analysis. Exiting.")
-        return
 
-    # 2. Combine Data
-    combined_df = data_combiner.combine_data(
-        camera_df=camera_df,
-        water_df=water_df
-        #max_interp_hours=0.25
-    )
-    
-    if combined_df.empty:
-        print("Data combination resulted in an empty DataFrame. Exiting.")
-        return
+    for f in files:
+        name = os.path.basename(f).replace("_", " ").replace(".html", "")
+        with st.expander(name):
+            render_plot_html(f)
 
-    combined_df.to_csv('combined_data_output.csv', index=False)
-    print("\n -> Successfully saved the combined DataFrame to 'combined_data_output.csv'")
 
-    # 3. Run Comprehensive Analysis (Both Camera Activity and Detection Efficiency)
-    print("\n" + "="*80)
-    print("RUNNING COMPREHENSIVE ANALYSIS")
-    print("="*80)
-    
+# -----------------------------
+# Analysis Runner (unchanged)
+# -----------------------------
+def run_pipeline(camera_path, water_path):
+    if os.path.exists("output_plots"):
+        for f in glob.glob("output_plots/*.html"):
+            os.remove(f)
+
+    camera_df = data_loader.load_and_prepare_camera_data(camera_path)
+    water_df = data_loader.load_and_prepare_water_data(water_path)
+
+    combined_df = data_combiner.combine_data(camera_df, water_df)
+    combined_df.to_csv("combined_data_output.csv", index=False)
+
     comprehensive_results = comprehensive_analysis.run_comprehensive_analysis(combined_df)
-    
-    # 4. Run Additional Analyses (using original methods for compatibility)
-    print("\n" + "="*80)
-    print("RUNNING ADDITIONAL ANALYSES")
-    print("="*80)
-    
-    # Use original species analysis return format for compatibility
-    species_summary_df, species_df = species_analysis.analyze_species_diversity(combined_df)
-    
+
+    species_summary_df, _ = species_analysis.analyze_species_diversity(combined_df)
     env_results = environmental_analysis.analyze_environmental_factors(combined_df)
     bird_tide_results = bird_tide_analysis.analyze_bird_tide_gate_behavior(combined_df)
     gate_combo_df = gate_combination_analysis.run_gate_combination_analysis(combined_df)
-    tide_cycle_df, detection_by_tide, phase_detection = tide_cycle_analysis.analyze_tide_cycle_detections(gate_combo_df)
-    species_tide_table = tide_cycle_analysis.analyze_species_tide_preferences(tide_cycle_df)
 
-    # 5. Generate Visualizations
-    print("\n\n--- Generating All Visualizations ---")
-    
-    # Original visualizations
+    tide_cycle_df, detection_by_tide, phase_detection = (
+        tide_cycle_analysis.analyze_tide_cycle_detections(gate_combo_df)
+    )
+    species_tide_table = tide_cycle_analysis.analyze_species_tide_preferences(
+        tide_cycle_df
+    )
+
     if species_summary_df is not None and not species_summary_df.empty:
         visualization.plot_species_analysis(species_summary_df)
 
     if env_results:
         visualization.plot_environmental_factors(*env_results)
-    
-    if bird_tide_results is not None:
-         visualization.plot_bird_analysis(bird_tide_results, combined_df)
+
+    if bird_tide_results is not None and not bird_tide_results.empty:
+        visualization.plot_bird_analysis(bird_tide_results, combined_df)
 
     visualization.create_safe_water_visualizations(combined_df)
     visualization.create_hypothesis_visualizations(gate_combo_df)
-    
-    tide_viz_results = (detection_by_tide, phase_detection, species_tide_table)
-    visualization.create_tide_cycle_visualizations(tide_cycle_df, tide_viz_results)
-    
-    # 6. Generate Additional Comprehensive Visualizations
-    import additional_visualizations
-    additional_visualizations.create_all_additional_visualizations(comprehensive_results, combined_df)
-    
-    # 7. Generate Summary Report
-    generate_summary_report(comprehensive_results)
-    
-    print("\n--- Comprehensive Analysis Pipeline Complete ---")
+
+    visualization.create_tide_cycle_visualizations(
+        tide_cycle_df, (detection_by_tide, phase_detection, species_tide_table)
+    )
+
+    additional_visualizations.create_all_additional_visualizations(
+        comprehensive_results, combined_df
+    )
+
+    return combined_df, species_summary_df, comprehensive_results
 
 
-def generate_summary_report(comprehensive_results):
-    """
-    Generates a summary report comparing Camera Activity Pattern vs Wildlife Detection Efficiency methods.
-    """
-    print("\n" + "="*80)
-    print("FINAL SUMMARY REPORT")
-    print("="*80)
-    
-    comparison = comprehensive_results['comparison']
-    
-    print(f"\n📊 DATASET OVERVIEW:")
-    print(f"   • Total monitoring periods: {comparison['total_periods']:,}")
-    print(f"   • Camera active periods: {comparison['camera_periods']:,}")
-    print(f"   • Animal detection events: {comparison['animal_detections']:,}")
-    print(f"   • Camera activity rate: {comparison['camera_activity_rate']:.3f}%")
-    
-    print(f"\n🔍 ANALYSIS RESULTS:")
-    print(f"   • Camera activity rate (all time periods): {comparison['camera_activity_rate']:.3f}%")
-    print(f"   • Wildlife detection success rate (camera active): {comparison['camera_detection_rate']:.1f}%")
-    print(f"   • Overall detection rate (all time periods): {comparison['overall_detection_rate']:.3f}%")
-    
-    print(f"\n📈 KEY INSIGHTS:")
-    
-    # Get top species from both methods
-    activity_top = comprehensive_results['camera_activity']['species_summary'].head(3)
-    efficiency_top = comprehensive_results['detection_efficiency']['species_summary'].head(3)
-    
-    print(f"   • Top 3 species (both methods agree):")
-    for i, (species, data) in enumerate(activity_top.iterrows(), 1):
-        print(f"     {i}. {species}: {data['Total_Count']:.0f} individuals, {data['Detection_Events']} events")
-    
-    print(f"\n💡 ANALYSIS METHOD RECOMMENDATIONS:")
-    print(f"   • Use CAMERA ACTIVITY PATTERN ANALYSIS for:")
-    print(f"     - Understanding when cameras operate most effectively")
-    print(f"     - Identifying monitoring bias and equipment performance")
-    print(f"     - Operational planning and resource allocation")
-    print(f"")
-    print(f"   • Use WILDLIFE DETECTION EFFICIENCY ANALYSIS for:")
-    print(f"     - Understanding wildlife behavior and optimal detection conditions")
-    print(f"     - Conservation and habitat management decisions")
-    print(f"     - Maximizing monitoring success rates")
-    print(f"")
-    print(f"   • Camera detection efficiency: {comparison['camera_detection_rate']:.1f}% - Good performance!")
-    print(f"   • Consider monitoring during wide-open gate conditions for best results")
-    
-    # Save detailed results to CSV
-    try:
-        activity_summary = comprehensive_results['camera_activity']['species_summary']
-        efficiency_summary = comprehensive_results['detection_efficiency']['species_summary']
-        
-        # Merge the summaries for comparison
-        comparison_df = pd.merge(
-            activity_summary.add_suffix('_Camera_Activity'),
-            efficiency_summary.add_suffix('_Detection_Efficiency'),
-            left_index=True,
-            right_index=True,
-            how='outer'
-        ).fillna(0)
-        
-        comparison_df.to_csv('analysis_comparison.csv')
-        print(f"\n💾 Detailed method comparison saved to 'analysis_comparison.csv'")
-        
-    except Exception as e:
-        print(f"\n⚠️  Could not save comparison CSV: {e}")
+# -----------------------------
+# Run Button Logic
+# -----------------------------
+if run_analysis:
+    if not camera_file or not water_file:
+        st.error("Please upload both Camera and Water CSV files.")
+    else:
+        log_buffer = io.StringIO()
 
+        with tempfile.TemporaryDirectory() as tmp:
+            camera_path = os.path.join(tmp, camera_file.name)
+            water_path = os.path.join(tmp, water_file.name)
 
-if __name__ == '__main__':
-    main()
+            with open(camera_path, "wb") as f:
+                f.write(camera_file.read())
+            with open(water_path, "wb") as f:
+                f.write(water_file.read())
+
+            with st.spinner("Running full analysis pipeline..."):
+                with contextlib.redirect_stdout(log_buffer):
+                    combined_df, species_summary, comprehensive = run_pipeline(
+                        camera_path, water_path
+                    )
+
+        st.success("🎉 Analysis finished successfully!")
+
+        # -----------------------------
+        # Captured Console Output
+        # -----------------------------
+        st.header("2️⃣ Analysis Console Output")
+
+        with st.expander("Show full pipeline output", expanded=True):
+            st.code(log_buffer.getvalue(), language="text")
+
+        st.download_button(
+            "Download Analysis Log",
+            data=log_buffer.getvalue(),
+            file_name="analysis_log.txt",
+            mime="text/plain"
+        )
+
+        # -----------------------------
+        # Visualizations
+        # -----------------------------
+        st.header("3️⃣ Visualizations")
+
+        render_plot_section(
+            "Species & Detection Overview",
+            ["output_plots/1_*.html", "output_plots/7c_*.html"]
+        )
+
+        render_plot_section(
+            "Environmental & Gate Effects",
+            ["output_plots/2*.html", "output_plots/7d_*.html"]
+        )
+
+        render_plot_section(
+            "Wildlife Behavior & Gate Interactions",
+            ["output_plots/5*.html"]
+        )
+
+        render_plot_section(
+            "Tidal Cycle & Phase Analysis",
+            ["output_plots/6*.html"]
+        )
+
+        render_plot_section(
+            "Method Comparisons & Performance Dashboards",
+            ["output_plots/7*.html"]
+        )
+
+        # -----------------------------
+        # Downloads
+        # -----------------------------
+        st.header("4️⃣ Downloads")
+
+        st.download_button(
+            "Download Combined Dataset",
+            data=combined_df.to_csv(index=False),
+            file_name="combined_data_output.csv",
+            mime="text/csv"
+        )
