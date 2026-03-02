@@ -12,11 +12,22 @@ import pandas as pd
 import sys
 
 def update_csv(file, output_file=None):
+    """Fills blank species fields with 'Unknown' when count data exists.
+
+    For rows where the species column (column F/index 5) is empty but the
+    count column (column I/index 8) has a value greater than 0, inserts
+    'Unknown' as the species name.
+
+    Args:
+        file (str): Path to the input CSV file.
+        output_file (str, optional): Path for the output CSV. Defaults to
+            overwriting the input file.
+    """
     try:
 
         df = pd.read_csv(file)
 
-        if len(df.column) < 9:
+        if len(df.columns) < 9:
             print("Error: Not enough columns")
             return
 

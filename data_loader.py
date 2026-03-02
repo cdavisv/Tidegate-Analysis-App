@@ -33,9 +33,23 @@ def find_species_columns(df):
     return species_cols
 
 def process_and_combine_species(df, species_cols, base_cols):
-    """
-    Processes each species column using the provided base_cols, combines them 
-    into a single long-format DataFrame. Only processes rows that actually have species data.
+    """Expands wide-format species columns into a single long-format DataFrame.
+
+    Processes each 'Species N' column alongside its associated count and notes
+    columns. Only rows with non-empty species names are included for each
+    species slot. All species DataFrames are concatenated into a unified format
+    with standardized 'Species', 'Count', and 'Notes' columns.
+
+    Args:
+        df (pd.DataFrame): Raw camera data with wide-format species columns.
+        species_cols (list[str]): List of detected 'Species N' column names.
+        base_cols (list[str]): List of non-species-specific column names to
+            preserve (e.g., DateTime, metadata columns).
+
+    Returns:
+        pd.DataFrame: Long-format DataFrame with columns including base_cols
+            plus 'Species', 'Count', and 'Notes'. Empty DataFrame if no valid
+            species entries found.
     """
     all_species_dfs = []
     

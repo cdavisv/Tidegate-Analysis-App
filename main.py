@@ -76,12 +76,27 @@ run_analysis = st.button("🚀 Run Full Analysis", type="primary")
 # Helpers for Plot Rendering
 # -----------------------------
 def render_plot_html(filepath, height=700):
+    """Reads an HTML file and renders it inline within the Streamlit app.
+
+    Args:
+        filepath (str): Path to the HTML file to render.
+        height (int): Height in pixels for the embedded HTML component.
+    """
     with open(filepath, "r", encoding="utf-8") as f:
         html = f.read()
     st.components.v1.html(html, height=height, scrolling=True)
 
 
 def render_plot_section(title, patterns):
+    """Creates a titled section with expandable HTML plot viewers.
+
+    Searches for HTML files matching the given glob patterns and renders
+    each one inside a Streamlit expander widget.
+
+    Args:
+        title (str): Section header text.
+        patterns (list[str]): Glob patterns to match HTML plot files.
+    """
     st.subheader(title)
     files = []
     for p in patterns:
@@ -102,6 +117,20 @@ def render_plot_section(title, patterns):
 # Analysis Runner (unchanged)
 # -----------------------------
 def run_pipeline(camera_path, water_path):
+    """Executes the full analysis pipeline from data loading through visualization.
+
+    Orchestrates all analysis modules in sequence: data loading, combination,
+    comprehensive dual-framework analysis, species analysis, environmental
+    analysis, gate combination analysis, tide cycle analysis, and all
+    visualization generation.
+
+    Args:
+        camera_path (str): File path to the uploaded camera CSV.
+        water_path (str): File path to the uploaded water/tide CSV.
+
+    Returns:
+        tuple: (combined_df, species_summary_df, comprehensive_results)
+    """
     if os.path.exists("output_plots"):
         for f in glob.glob("output_plots/*.html"):
             os.remove(f)
