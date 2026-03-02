@@ -46,24 +46,33 @@ def create_method_comparison_visualizations(comprehensive_results, combined_df):
     Creates visualizations comparing Camera Activity Pattern vs Wildlife Detection Efficiency methods.
     """
     print("\n--- Generating Method Comparison Visualizations ---")
-    
+    figures = {}
+
     # 1. Data Overview Dashboard
-    create_data_overview_dashboard(comprehensive_results)
-    
+    fig = create_data_overview_dashboard(comprehensive_results)
+    if fig: figures['data_overview_dashboard'] = fig
+
     # 2. Analysis Method Comparison Charts
-    create_analysis_method_comparison(comprehensive_results, combined_df)
-    
+    fig = create_analysis_method_comparison(comprehensive_results, combined_df)
+    if fig: figures['analysis_method_comparison'] = fig
+
     # 3. Species Detection Patterns
-    create_species_pattern_comparison(comprehensive_results)
-    
+    fig = create_species_pattern_comparison(comprehensive_results)
+    if fig: figures['species_pattern_comparison'] = fig
+
     # 4. Environmental Factor Effectiveness
-    create_environmental_effectiveness_charts(combined_df)
-    
+    fig = create_environmental_effectiveness_charts(combined_df)
+    if fig: figures['environmental_effectiveness'] = fig
+
     # 5. Time Series Analysis
-    create_temporal_analysis_charts(combined_df)
-    
+    fig = create_temporal_analysis_charts(combined_df)
+    if fig: figures['temporal_analysis'] = fig
+
     # 6. Camera Performance Dashboard
-    create_camera_performance_dashboard(combined_df)
+    fig = create_camera_performance_dashboard(combined_df)
+    if fig: figures['camera_performance_dashboard'] = fig
+
+    return figures
 
 def create_data_overview_dashboard(comprehensive_results):
     """
@@ -109,6 +118,8 @@ def create_data_overview_dashboard(comprehensive_results):
     )
     
     save_plot(fig, "7a_data_overview_dashboard")
+    return fig
+
 
 def create_analysis_method_comparison(comprehensive_results, combined_df):
     """
@@ -119,7 +130,7 @@ def create_analysis_method_comparison(comprehensive_results, combined_df):
     # Get gate analysis data for comparison
     if 'Gate_Opening_MTR_Deg' not in combined_df.columns:
         print("   -> Skipping gate comparison: MTR gate data not available")
-        return
+        return None
     
     # Camera Activity Pattern rates - FIXED: Handle string boolean values
     combined_df_temp = combined_df.copy()
@@ -190,6 +201,8 @@ def create_analysis_method_comparison(comprehensive_results, combined_df):
     fig.update_xaxes(title_text="MTR Gate Position", row=1, col=2)
     
     save_plot(fig, "7b_analysis_method_comparison")
+    return fig
+
 
 def create_species_pattern_comparison(comprehensive_results):
     """
@@ -247,6 +260,8 @@ def create_species_pattern_comparison(comprehensive_results):
     fig.update_xaxes(title_text="Detection Rate (%)", row=1, col=2)
     
     save_plot(fig, "7c_species_pattern_comparison")
+    return fig
+
 
 def create_environmental_effectiveness_charts(combined_df):
     """
@@ -263,8 +278,8 @@ def create_environmental_effectiveness_charts(combined_df):
     
     if camera_obs.empty:
         print("   -> No camera observations for environmental analysis")
-        return
-    
+        return None
+
     # Create effectiveness metrics
     fig = make_subplots(
         rows=2, cols=2,
@@ -358,6 +373,8 @@ def create_environmental_effectiveness_charts(combined_df):
     )
     
     save_plot(fig, "7d_environmental_effectiveness")
+    return fig
+
 
 def create_temporal_analysis_charts(combined_df):
     """
@@ -374,8 +391,8 @@ def create_temporal_analysis_charts(combined_df):
     
     if camera_obs.empty:
         print("   -> No camera observations for temporal analysis")
-        return
-    
+        return None
+
     # Hourly and daily patterns
     camera_obs['hour'] = camera_obs['DateTime'].dt.hour
     camera_obs['day_of_week'] = camera_obs['DateTime'].dt.day_name()
@@ -471,6 +488,8 @@ def create_temporal_analysis_charts(combined_df):
     fig.update_xaxes(title_text="Date", row=2, col=2)
     
     save_plot(fig, "7e_temporal_analysis")
+    return fig
+
 
 def create_camera_performance_dashboard(combined_df):
     """
@@ -609,6 +628,8 @@ def create_camera_performance_dashboard(combined_df):
     )
     
     save_plot(fig, "7f_camera_performance_dashboard")
+    return fig
+
 
 def create_all_additional_visualizations(comprehensive_results, combined_df):
     """
@@ -617,9 +638,9 @@ def create_all_additional_visualizations(comprehensive_results, combined_df):
     print("\n" + "="*60)
     print("GENERATING ADDITIONAL COMPREHENSIVE VISUALIZATIONS")
     print("="*60)
-    
-    create_method_comparison_visualizations(comprehensive_results, combined_df)
-    
+
+    figures = create_method_comparison_visualizations(comprehensive_results, combined_df)
+
     print("\n✅ All additional visualizations completed!")
     print("📁 Check the 'output_plots' folder for all generated visualizations:")
     print("   • 7a_data_overview_dashboard.html")
@@ -628,3 +649,5 @@ def create_all_additional_visualizations(comprehensive_results, combined_df):
     print("   • 7d_environmental_effectiveness.html")
     print("   • 7e_temporal_analysis.html")
     print("   • 7f_camera_performance_dashboard.html")
+
+    return figures
