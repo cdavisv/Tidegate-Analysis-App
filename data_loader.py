@@ -229,7 +229,7 @@ def load_and_prepare_camera_data(file_id):
     """
     print("\n--- Loading and Preparing Camera Data ---")
     try:
-        df = pd.read_csv(file_id, low_memory=False)
+        df = pd.read_csv(file_id, low_memory=False, encoding="utf-8-sig")
         print(f"Raw camera data shape: {df.shape}")
         print(f"Column names: {list(df.columns)}")
     except Exception as e:
@@ -345,7 +345,7 @@ def load_and_prepare_water_data(file_id):
     """Loads and prepares water quality and environmental data."""
     print("\n--- Loading Water Quality Data ---")
     try:
-        df = pd.read_csv(file_id, low_memory=False)
+        df = pd.read_csv(file_id, low_memory=False, encoding="utf-8-sig")
         print(f"Raw water data shape: {df.shape}")
     except Exception as e:
         print(f"Error loading water data: {e}")
@@ -405,12 +405,22 @@ def load_and_prepare_water_data(file_id):
             if converted > 0:
                 print(f"Converted {converted} non-numeric values to NaN in {col}")
 
-    # Select final columns
-    final_cols = ['DateTime'] + [col for col in df.columns if col in list(rename_map.values())]
-    final_cols = [col for col in final_cols if col in df.columns]
-    
-    result_df = df[final_cols]
+    # Keep DateTime plus every column that carries numeric data. This preserves
+    # extra weather/sensor parameters (humidity, barometric pressure,
+    # precipitation, radiation, wind, and any imported weather columns) so they
+    # flow through to the combined dataset for weather-vs-wildlife analysis,
+    # instead of being dropped to a fixed whitelist.
+    keep = ['DateTime']
+    for col in df.columns:
+        if col in ('DateTime', 'Date', 'Time'):
+            continue
+        coerced = pd.to_numeric(df[col], errors='coerce')
+        if coerced.notna().any():
+            df[col] = coerced
+            keep.append(col)
+
+    result_df = df[keep]
     print(f"Final water data shape: {result_df.shape}")
     print(f"Final columns: {list(result_df.columns)}")
-    
+
     return result_df

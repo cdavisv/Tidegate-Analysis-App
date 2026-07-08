@@ -9,13 +9,13 @@
 
 <br />
 <div align="center">
-  <h3 align="center">Wildlife Detection and Tide Gate Analysis</h3>
+  <h3 align="center">Wildlife Detection & Tide Gate Analysis</h3>
 
   <p align="center">
-    A Streamlit web application for analyzing wildlife camera trap detections
-    in relation to tide dynamics, gate configurations, and environmental
-    conditions using a dual-framework approach that separates operational bias
-    from biological behavior.
+    An end-to-end Streamlit pipeline that turns raw camera-trap images into
+    ecological insight — detecting species with computer vision or an LLM,
+    importing weather &amp; tide data, and analyzing how wildlife activity tracks
+    the tidal cycle, gate operations, and environmental conditions.
     <br />
     <br />
     <a href="#getting-started"><strong>Get Started</strong></a>
@@ -31,13 +31,18 @@
 ## Table of Contents
 
 - [About The Project](#about-the-project)
+- [The Pipeline](#the-pipeline)
 - [Analysis Framework](#analysis-framework)
 - [Built With](#built-with)
 - [Getting Started](#getting-started)
+- [Configuration](#configuration)
 - [Input Data Formats](#input-data-formats)
 - [Usage](#usage)
+- [Detectors](#detectors)
+- [Weather &amp; Tide Sources](#weather--tide-sources)
 - [Project Structure](#project-structure)
 - [Outputs](#outputs)
+- [Testing](#testing)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -47,19 +52,49 @@
 
 ## About The Project
 
-This project analyzes wildlife camera trap detections in tidal environments to
+This project analyzes wildlife camera-trap detections in tidal environments to
 understand how animal activity and detection success vary with:
 
 - Tide gate opening configurations (MTR and top hinge gates)
-- Tidal flow states (rising, falling, high slack, low slack)
-- Environmental conditions (temperature, water depth, wind speed)
+- Tidal flow states (rising, falling, high slack, low slack) and continuous phase
+- Environmental conditions (temperature, water depth, wind, humidity, pressure, precipitation)
 - Temporal patterns (hourly, daily, seasonal)
 
-A key goal is to **separate operational bias from biological behavior** by
-comparing two complementary analytical frameworks. The application combines
-camera observation data with tidal/environmental sensor data, performs
-statistical analysis (chi-square tests, GLM modeling), and generates
-interactive Plotly visualizations.
+It now covers the **whole workflow** — from a folder of trail-camera images to a
+finished analysis — with a polished multi-page web app. A key analytical goal is
+to **separate operational bias from biological behavior** by comparing two
+complementary frameworks.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## The Pipeline
+
+```
+ Camera images ──▶  Image Detection  ──▶  Camera dataset (CSV)
+ (folder/upload)    demo · MegaDetector/SpeciesNet · OpenAI GPT      │
+                                                                     ▼
+ Weather/Tide  ──▶  Weather Import   ──▶  Sensor + weather timeline ─┤
+ Open-Meteo/NOAA/Synoptic/CSV                                        │
+                                                                     ▼
+                                         Analysis (dual-framework) ──▶ Insights
+                                         species · gates · tides · weather
+```
+
+1. **Image Detection** — Identify wildlife in images and generate the wide-format
+   *camera dataset*. Three interchangeable engines:
+   - **Demo** — synthetic, deterministic detections (no models/keys) for testing.
+   - **MegaDetector + SpeciesNet** — local computer vision (AddaxAI-style) via
+     [Pytorch-Wildlife](https://github.com/microsoft/CameraTraps).
+   - **OpenAI GPT vision** — a multimodal LLM identifies species directly.
+2. **Weather Import** — Fetch weather &amp; tide data from Open-Meteo, NOAA, or
+   Synoptic (or upload a CSV) and merge it onto the sensor timeline.
+3. **Analysis** — Combine camera + sensor data and run the dual-framework
+   analysis, exploring interactive results including a new **Weather Patterns** view.
+
+Each step hands its output to the next through the app session; you can also start
+at any step by uploading the relevant CSV.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -67,28 +102,20 @@ interactive Plotly visualizations.
 
 ## Analysis Framework
 
-The project implements multiple complementary analytical layers.
-
 ### 1. Camera Activity Pattern Analysis
-- Treats all monitoring periods as potential observation windows
-- Measures when cameras were operational relative to environmental conditions
-- Identifies equipment and environmental biases in data collection
-- **Metric:** Camera Activity Rate = Camera Active Periods / All Time Periods
+- Treats all monitoring periods as potential observation windows.
+- **Metric:** Camera Activity Rate = Camera Active Periods / All Time Periods.
+- Reveals equipment performance and operational bias.
 
 ### 2. Wildlife Detection Efficiency Analysis
-- Restricts analysis to periods when cameras were active
-- Measures detection success when monitoring was occurring
-- Focuses on animal behavior rather than equipment performance
-- **Metric:** Detection Rate = Animal Detections / Camera Observations
+- Restricts analysis to periods when cameras were active.
+- **Metric:** Detection Rate = Animal Detections / Camera Observations.
+- Reveals animal behavior and optimal monitoring conditions.
 
-### 3. Tidal Cycle and Phase Analysis
-- Classifies tidal states (rising, falling, high slack, low slack)
-- Models continuous tidal phase across the full tidal cycle (0 = low tide, 0.5 = high tide, 1 = next low tide)
-- Identifies peak wildlife detection periods relative to tidal motion
-- Analyzes species-specific tidal preferences
-
-Together, these layers support robust ecological interpretation of wildlife
-camera trap data in managed tidal systems.
+### 3. Tidal Cycle, Gate, and Weather Analysis
+- Classifies tidal states and models a continuous tidal phase (0 = low, 0.5 = high).
+- Hypothesis tests across MTR / top-hinge gate combinations.
+- Detection rate across binned weather variables (temperature, wind, humidity, …).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -96,15 +123,11 @@ camera trap data in managed tidal systems.
 
 ## Built With
 
-- [Python 3.9+](https://www.python.org/)
-- [Streamlit](https://streamlit.io/) - Web application framework
-- [pandas](https://pandas.pydata.org/) - Data manipulation and analysis
-- [NumPy](https://numpy.org/) - Numerical computing
-- [SciPy](https://scipy.org/) - Statistical analysis (chi-square tests, signal processing)
-- [statsmodels](https://www.statsmodels.org/) - GLM modeling
-- [Plotly](https://plotly.com/python/) - Interactive visualizations
-- [matplotlib](https://matplotlib.org/) - Static visualizations
-- [seaborn](https://seaborn.pydata.org/) - Statistical plot styling
+- [Python 3.9+](https://www.python.org/) · [Streamlit](https://streamlit.io/) (multi-page app)
+- [pandas](https://pandas.pydata.org/) · [NumPy](https://numpy.org/) · [SciPy](https://scipy.org/) · [statsmodels](https://www.statsmodels.org/)
+- [Plotly](https://plotly.com/python/) · [matplotlib](https://matplotlib.org/) · [seaborn](https://seaborn.pydata.org/)
+- [Pillow](https://python-pillow.org/) · [requests](https://requests.readthedocs.io/) · [OpenAI](https://platform.openai.com/) (vision)
+- Optional local CV: [Pytorch-Wildlife / MegaDetector](https://github.com/microsoft/CameraTraps), [SpeciesNet](https://github.com/google/cameratrapai)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -113,26 +136,48 @@ camera trap data in managed tidal systems.
 ## Getting Started
 
 ### Prerequisites
-
-- Python 3.9 or newer
-- pip (or conda)
+- Python 3.9 or newer, and `pip`.
 
 ### Installation
+```sh
+git clone https://github.com/cdavisv/Tidegate-Analysis-App.git
+cd Tidegate-Analysis-App
+pip install -r requirements.txt
+```
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/cdavisv/Tidegate-Analysis-App.git
-   ```
+Optional — local computer-vision detection (MegaDetector + SpeciesNet):
+```sh
+pip install -r requirements-cv.txt      # heavy; a GPU is recommended
+```
 
-2. Navigate into the project directory:
-   ```sh
-   cd Tidegate-Analysis-App
-   ```
+### Run the app
+```sh
+streamlit run app.py
+```
 
-3. Install dependencies:
-   ```sh
-   pip install -r requirements.txt
-   ```
+> The legacy single-page app (`streamlit run main.py`) still works, but `app.py`
+> is the new multi-page front door.
+
+**Fastest tour:** Home → *Load Willanch demo data* → Analysis → *Run full analysis*.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Configuration
+
+Non-secret defaults live in `config.json` (site name, coordinates, model names).
+Secrets are read from the environment only and never written to disk. Copy
+`.env.example` to `.env` (or export the variables):
+
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | OpenAI GPT vision detector |
+| `OPENAI_VISION_MODEL` | Override the default model (`gpt-5.5`) |
+| `SYNOPTIC_TOKEN` | Synoptic/MesoWest weather |
+| `TIDEGATE_LAT`, `TIDEGATE_LON`, `TIDEGATE_TZ`, `TIDEGATE_SITE` | Field-site defaults for weather/tide fetches |
+
+The **Help & Docs** page in the app shows your current effective configuration.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -140,48 +185,26 @@ camera trap data in managed tidal systems.
 
 ## Input Data Formats
 
-The application requires two CSV files uploaded through the Streamlit interface.
+### Camera dataset (CSV)
+One row per image/observation. Requires a `DateTime` column (or `Date` + `Time`),
+and `Species 1` (blank when nothing was detected), with optional `Species 2 …`,
+`Species N Count`, and `Notes N`. Rows with a blank `Species 1` are preserved as
+**no-animal camera records** — essential for the dual-framework analysis. The
+Image Detection page produces exactly this shape automatically.
 
-### Camera Data CSV
+### Water / tide / sensor dataset (CSV)
+Requires `DateTime` (or `Date` + `Time`). Recognized columns include
+`Gate Opening MTR [Degrees]`, `Gate Opening Top Hinge [Degrees]`,
+`Tidal Level Outside Tidegate [m]` (→ `Depth`), `Tidal Level Inside Tidegate [m]`,
+`Air Temp [C]`, and `Wind Speed [km/h]`. **All additional numeric columns are now
+retained** (humidity, pressure, precipitation, radiation, …) and flow into the
+combined dataset for weather analysis. A UTF-8 BOM on the header is handled, and
+zero depths are treated as sensor errors (→ NaN).
 
-Must contain a `DateTime` column (or separate `Date` and `Time` columns that will be combined automatically). Species observations are stored in wide format with repeating column groups:
-
-| Column | Required | Description |
-|--------|----------|-------------|
-| `DateTime` | Yes* | Timestamp of observation |
-| `Date` | Yes* | Date of observation (used if `DateTime` is absent) |
-| `Time` | Yes* | Time of observation (used if `DateTime` is absent) |
-| `Species 1` | Yes | Name of first species observed (blank if none detected) |
-| `Species 1 Count` or `Species Count 1` | No | Count of individuals for Species 1 |
-| `Notes 1` | No | Observation notes for Species 1 |
-| `Species 2`, `Species 2 Count`, `Notes 2` | No | Additional species in the same observation |
-| `Species N`, `Species N Count`, `Notes N` | No | Up to N species per observation row |
-
-\*Either `DateTime` or both `Date` and `Time` must be present.
-
-Rows where all species fields are empty are treated as "no animals detected" camera activity records. These records are critical for the dual-framework analysis, as they distinguish camera operational time from actual wildlife detections.
-
-The application automatically standardizes common species names to scientific nomenclature (e.g., "canada goose" to "Branta canadensis").
-
-### Water / Tide Sensor Data CSV
-
-Must contain a `DateTime` column (or separate `Date` and `Time` columns). Columns are automatically renamed internally to standardized names.
-
-| Column | Required | Internal Name | Description |
-|--------|----------|---------------|-------------|
-| `DateTime` | Yes* | `DateTime` | Timestamp of measurement |
-| `Gate Opening MTR [Degrees]` | Recommended | `Gate_Opening_MTR_Deg` | MTR gate opening angle in degrees |
-| `Gate Opening Top Hinge [Degrees]` | Recommended | `Gate_Opening_Top_Hinge_Deg` | Top hinge gate opening angle in degrees |
-| `Tidal Level Outside Tidegate [m]` | Recommended | `Depth` | Water depth outside the tide gate (meters) |
-| `Tidal Level Inside Tidegate [m]` | No | `Depth_Inside` | Water depth inside the tide gate (meters) |
-| `Air Temp [C]` | No | `Air_Temp_C` | Air temperature in Celsius |
-| `Wind Speed [km/h]` | No | `Wind_Speed_km_h` | Wind speed in km/h |
-
-\*Either `DateTime` or both `Date` and `Time` must be present.
-
-If your columns already use the internal naming convention (e.g., `Gate_Opening_MTR_Deg`), they will be used directly without renaming.
-
-Zero values in depth columns are automatically replaced with NaN, as zero depth typically indicates sensor error rather than an actual measurement.
+### Weather CSV (for upload)
+Bracketed-unit headers such as `Air Temp [C]`, `Wind Speed [km/h]`,
+`Precipitation [cm]`, `Barometric Pressure [mbar]`, `Humidity [%]` are
+auto-detected and unit-converted to the normalized schema.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -189,23 +212,46 @@ Zero values in depth columns are automatically replaced with NaN, as zero depth 
 
 ## Usage
 
-Launch the Streamlit application:
+1. **Detect / import images** — On *Image Detection*, choose a detector, point it
+   at a folder or upload images, and run. Download the generated camera CSV or
+   pass it straight to the analysis.
+2. **Import weather** — On *Weather Import*, pick a source (or upload a CSV),
+   fetch, preview, and merge onto your sensor timeline.
+3. **Analyze** — On *Analysis*, confirm the camera + sensor data, click *Run full
+   analysis*, and explore results across the tabs. Download the combined dataset,
+   per-analysis CSVs, and the console log.
 
-```sh
-streamlit run main.py
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-The application will open in your web browser. The workflow is:
+---
 
-1. **Upload Data** - Upload your Camera CSV and Water/Tide CSV files using the file upload widgets
-2. **Run Analysis** - Click the "Run Full Analysis" button to execute the full pipeline
-3. **View Results** - Browse the analysis console output and interactive visualizations organized by category:
-   - Species and detection overview
-   - Environmental and gate effects
-   - Wildlife behavior and gate interactions
-   - Tidal cycle and phase analysis
-   - Method comparisons and performance dashboards
-4. **Download Outputs** - Download the combined dataset CSV and the analysis log
+## Detectors
+
+| Engine | Needs | Best for |
+|--------|-------|----------|
+| **Demo** | nothing | Trying the pipeline end-to-end without models/keys (synthetic data). |
+| **MegaDetector + SpeciesNet** | `requirements-cv.txt` (PyTorch, Pytorch-Wildlife, optional SpeciesNet) | Local, private, high-volume camera-trap processing. |
+| **OpenAI GPT vision** | `OPENAI_API_KEY` | Tricky frames where a multimodal model helps; no local GPU. |
+
+The local CV path is inspired by and interoperable with the
+[AddaxAI](https://github.com/PetervanLunteren/AddaxAI) ecosystem built around
+MegaDetector and SpeciesNet. Capture timestamps are read from EXIF, then the
+filename, then file modification time.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Weather & Tide Sources
+
+All free, all normalized to a common schema (`Air_Temp_C`, `Wind_Speed_km_h`,
+`Precipitation_cm`, `Barometric_Pressure_mbar`, `Humidity_pct`,
+`Solar_Radiation_W_m2`, `Water_Level_m`):
+
+- **Open-Meteo** *(recommended)* — no key; historical archive + forecast.
+- **NOAA** — NWS station observations + CO-OPS tide water level (by station id).
+- **Synoptic / MesoWest** — dense station network; free token.
+- **CSV upload** — bring your own weather-station export.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -215,51 +261,43 @@ The application will open in your web browser. The workflow is:
 
 ```
 Tidegate-Analysis-App/
-├── main.py                        # Streamlit app entry point and pipeline orchestration
-├── data_loader.py                 # Camera and water data loading, species expansion
-├── data_combiner.py               # Camera + sensor data merging and interpolation
+├── app.py                         # Multi-page Streamlit entry (st.navigation)
+├── views/                         # Page scripts
+│   ├── home.py                    #   overview + demo quick-start
+│   ├── detection.py               #   image detection (CV + LLM)
+│   ├── weather_import.py          #   weather/tide fetch + merge
+│   ├── analysis.py                #   dual-framework analysis + results
+│   └── help.py                    #   in-app documentation
+├── ui_common.py                   # Shared theme, header, session-state contract
+├── config.py / config.json        # Site + model configuration
+├── pipeline_runner.py             # Reusable analysis pipeline (frames or files)
+├── vision/                        # Image detection subsystem
+│   ├── schema.py                  #   detection dataclasses + species mapping
+│   ├── camera_csv.py              #   detections → wide camera CSV
+│   ├── image_source.py            #   folder/upload ingestion + EXIF time
+│   ├── base.py                    #   Detector ABC (batch + progress)
+│   ├── demo_detector.py           #   synthetic detector
+│   ├── megadetector.py            #   MegaDetector + SpeciesNet (import-guarded)
+│   ├── llm_openai.py              #   OpenAI GPT vision detector
+│   └── pipeline.py                #   orchestration + registry
+├── weather/                       # Weather import subsystem
+│   ├── sources.py                 #   Open-Meteo / NOAA / Synoptic
+│   └── normalize.py               #   schema, CSV import, merge
+├── data_loader.py                 # Camera & water loading, species expansion
+├── data_combiner.py               # Camera + sensor merge and interpolation
 ├── comprehensive_analysis.py      # Dual-framework analysis engine
-├── species_analysis.py            # Species diversity metrics and preferences
-├── environmental_analysis.py      # Environmental factor detection rate analysis
-├── bird_tide_analysis.py          # Wildlife-tide-gate interaction analysis
-├── gate_combination_analysis.py   # Multi-gate combination hypothesis testing
-├── tide_cycle_analysis.py         # Tidal cycle phase and species preference analysis
-├── analysis.py                    # Statistical analysis: chi-square, GLM modeling
-├── visualization.py               # Core Plotly/matplotlib visualization generation
-├── additional_visualizations.py   # Method comparison dashboards and advanced charts
-├── fieldinsertion.py              # CLI utility for CSV field correction
-├── requirements.txt               # Python dependencies
-├── License.md                     # MIT License
-├── Readme.md                      # This file
+├── species_analysis.py            # Species diversity metrics
+├── environmental_analysis.py      # Environmental factor detection rates
+├── bird_tide_analysis.py          # Wildlife-tide-gate interactions
+├── gate_combination_analysis.py   # Multi-gate hypothesis testing
+├── tide_cycle_analysis.py         # Tidal phase & species preferences
+├── analysis.py                    # Chi-square / GLM statistics
+├── visualization.py               # Core Plotly/matplotlib figures
+├── additional_visualizations.py   # Method-comparison dashboards
+├── main.py                        # Legacy single-page app (still works)
+├── tests/                         # pytest suite (vision + weather + pipeline)
+├── requirements.txt / requirements-cv.txt
 └── output_plots/                  # Generated interactive HTML visualizations
-```
-
-### Data Flow
-
-```
-Camera CSV + Water/Tide CSV
-        │
-  data_loader.py  ─── Load, normalize, expand multi-species rows
-        │
-  data_combiner.py  ─── Merge datasets, interpolate water variables (15-min window)
-        │
-  ┌─────┼─────────────────────────────────────────────────┐
-  │     │                                                 │
-  │  comprehensive_analysis.py                            │
-  │     ├── Camera Activity Pattern Analysis              │
-  │     └── Wildlife Detection Efficiency Analysis        │
-  │                                                       │
-  │  species_analysis.py ── Species diversity metrics     │
-  │  environmental_analysis.py ── Gate/tide/temp effects  │
-  │  bird_tide_analysis.py ── Wildlife-tide interactions  │
-  │  gate_combination_analysis.py ── Multi-gate hypotheses│
-  │  tide_cycle_analysis.py ── Tidal phase preferences    │
-  │  analysis.py ── Chi-square tests, GLM                 │
-  └───────────────────────────────────────────────────────┘
-        │
-  visualization.py + additional_visualizations.py
-        │
-  output_plots/ (HTML) + combined_data_output.csv
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -268,26 +306,25 @@ Camera CSV + Water/Tide CSV
 
 ## Outputs
 
-The pipeline produces the following outputs:
+The pipeline produces a combined dataset CSV, an analysis log, per-analysis CSV
+downloads (species summary, gate interactions, tide preferences, environmental
+rates), interactive Plotly HTML plots in `output_plots/`, and annotated tidal
+hypothesis PNGs. A generated camera dataset CSV is also downloadable from the
+Image Detection page.
 
-| Output | Format | Description |
-|--------|--------|-------------|
-| Combined dataset | CSV | Camera observations merged with interpolated sensor data |
-| Analysis log | TXT | Full console output from all analysis stages |
-| Species summary | HTML | Top species by count and detection events |
-| Gate detection rates | HTML | Detection rates by MTR and top hinge gate positions |
-| Tidal level effects | HTML | Detection rates across tidal depth levels |
-| Water parameter time series | HTML | Time series of available water quality parameters |
-| Wildlife detection heatmap | HTML | Detection rates by gate status and tidal flow |
-| Wildlife detection scatter | HTML | Detections vs gate angle and tidal change rate |
-| Tidal state bar chart | HTML | Detection rates by rising/falling/slack tide |
-| Tidal phase polar chart | HTML | Detection rates around the full tidal cycle |
-| Species tide preferences | HTML | Heatmap of species-specific tidal state preferences |
-| Method comparison | HTML | Side-by-side Camera Activity vs Detection Efficiency |
-| Performance dashboard | HTML | Camera system performance gauges and data quality metrics |
-| Hypothesis visualizations | PNG | Annotated tidal cycle diagrams with peak activity |
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-All interactive HTML plots are saved to the `output_plots/` directory. The combined dataset and analysis log are available for download directly from the Streamlit interface.
+---
+
+## Testing
+
+```sh
+pip install pytest
+pytest -q            # unit tests for vision, weather, and the camera-CSV contract
+```
+
+The suite runs fully offline (network calls are mocked). An end-to-end smoke test
+drives the demo detector through the analysis pipeline.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -295,14 +332,18 @@ All interactive HTML plots are saved to the `output_plots/` directory. The combi
 
 ## Roadmap
 
-- [ ] Add mixed-effects models for repeated camera locations
-- [ ] Add spatial analysis support
-- [ ] Improve automated report generation
-- [ ] Add configuration file support
-- [ ] Add unit tests for data loading and analysis modules
-- [ ] Package as installable Python module
+- [x] Image → dataset generation via computer vision (MegaDetector/SpeciesNet)
+- [x] LLM (OpenAI GPT vision) image analysis option
+- [x] Weather-station / tide data import (Open-Meteo, NOAA, Synoptic, CSV)
+- [x] Multi-page app with in-app help and a weather-patterns view
+- [x] Unit tests for detection, weather, and data loading
+- [ ] Mixed-effects models for repeated camera locations
+- [ ] Spatial analysis support
+- [ ] Automated PDF/HTML report generation
+- [ ] Package as an installable Python module
 
-See the [open issues](https://github.com/cdavisv/Tidegate-Analysis-App/issues) for proposed features and known limitations.
+See the [open issues](https://github.com/cdavisv/Tidegate-Analysis-App/issues) for
+proposed features and known limitations.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -310,19 +351,9 @@ See the [open issues](https://github.com/cdavisv/Tidegate-Analysis-App/issues) f
 
 ## Contributing
 
-Contributions are welcome, especially in the areas of:
-
-- Ecological modeling
-- Statistical validation
-- Visualization improvements
-- Performance optimization
-
-To contribute:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+Contributions are welcome — ecological modeling, statistical validation,
+visualization, detector back-ends, and performance. Fork, branch
+(`git checkout -b feature/your-feature`), commit, push, and open a Pull Request.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -346,15 +377,4 @@ Project Link: [https://github.com/cdavisv/Tidegate-Analysis-App](https://github.
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/cdavisv/Tidegate-Analysis-App.svg?style=for-the-badge
-[contributors-url]: https://github.com/cdavisv/Tidegate-Analysis-App/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/cdavisv/Tidegate-Analysis-App.svg?style=for-the-badge
-[forks-url]: https://github.com/cdavisv/Tidegate-Analysis-App/network/members
-[stars-shield]: https://img.shields.io/github/stars/cdavisv/Tidegate-Analysis-App.svg?style=for-the-badge
-[stars-url]: https://github.com/cdavisv/Tidegate-Analysis-App/stargazers
-[issues-shield]: https://img.shields.io/github/issues/cdavisv/Tidegate-Analysis-App.svg?style=for-the-badge
-[issues-url]: https://github.com/cdavisv/Tidegate-Analysis-App/issues
-[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge
-[license-url]: https://opensource.org/licenses/MIT
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://www.linkedin.com/in/charles-a-davis-v/
+[contributors-shield]

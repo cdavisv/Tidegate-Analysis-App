@@ -1,3 +1,4 @@
+# Core analysis + web app
 pandas>=1.5.0
 numpy>=1.23.0
 scipy>=1.9.0
@@ -5,5 +6,15 @@ statsmodels>=0.13.0
 plotly>=5.10.0
 matplotlib>=3.6.0
 seaborn>=0.12.0
-streamlit>=1.20.0
-# Optional: kaleido>=0.2.1  # Required for PNG export of Plotly visualizations
+streamlit>=1.36.0        # requires st.navigation / st.Page (multi-page app)
+
+# Image detection (LLM path), weather import, image handling
+pillow>=9.0.0
+requests>=2.28.0
+openai>=1.30.0
+
+# Optional: kaleido>=0.2.1   # PNG export of Plotly visualizations
+
+# --- Optional local computer-vision stack (MegaDetector + SpeciesNet) ---
+# Heavy; install separately (ideally on a GPU machine):
+#     pip install -r requirements-cv.txt

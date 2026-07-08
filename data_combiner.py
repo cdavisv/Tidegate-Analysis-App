@@ -130,7 +130,8 @@ def combine_data(camera_df, water_df, max_interp_hours=0.25):  # CHANGED: Defaul
         true_detection_rate = combined_df['animal_detected'].sum() / combined_df['has_camera_data'].sum()
         print(f"True detection rate: {true_detection_rate:.1%}")
     
-    print(f"Null values in 'Depth' after process: {combined_df['Depth'].isnull().sum()}")
-    print(f"Null values in 'Depth_Inside' after process: {combined_df['Depth_Inside'].isnull().sum()}")
+    for _depth_col in ('Depth', 'Depth_Inside'):
+        if _depth_col in combined_df.columns:
+            print(f"Null values in '{_depth_col}' after process: {combined_df[_depth_col].isnull().sum()}")
 
     return combined_df

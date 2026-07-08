@@ -1,0 +1,13 @@
+{
+  "site_name": "Willanch Slough Tide Gate (Coos Bay, OR)",
+  "latitude": 43.45,
+  "longitude": -124.2,
+  "timezone": "America/Los_Angeles",
+  "noaa_tide_station": "9432780",
+  "default_detector": "demo",
+  "openai_vision_model": "gpt-5.5",
+  "megadetector_version": "MDV6-yolov9-c",
+  "detection_threshold": 0.2,
+  "default_weather_source": "open-meteo",
+  "output_dir": "output_plots"
+}

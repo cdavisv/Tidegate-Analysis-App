@@ -283,14 +283,25 @@ def analyze_environmental_factors_detection_efficiency(combined_df):
 
     # --- 3. Tidal Level Analysis ---
     tidal_analysis = None
-    if 'Depth' in camera_observations.columns:
+    if 'Depth' in camera_observations.columns and camera_observations['Depth'].notna().any():
         quantiles = camera_observations['Depth'].quantile([0.25, 0.75])
+        depth_min = camera_observations['Depth'].min()
+        depth_max = camera_observations['Depth'].max()
+        # Guard against all-NaN or degenerate (non-monotonic) bin edges.
+        edges = [depth_min - 1, quantiles[0.25], quantiles[0.75], depth_max + 1]
+        edges_ok = all(pd.notna(e) for e in edges) and all(
+            edges[i] < edges[i + 1] for i in range(len(edges) - 1)
+        )
+    else:
+        edges_ok = False
+
+    if edges_ok:
         camera_observations['tide_level'] = pd.cut(
             camera_observations['Depth'],
-            bins=[camera_observations['Depth'].min()-1, quantiles[0.25], quantiles[0.75], camera_observations['Depth'].max()+1],
+            bins=edges,
             labels=['Low Tide', 'Mid Tide', 'High Tide']
         )
-        
+
         tidal_analysis = camera_observations.groupby('tide_level', observed=True).agg(
             Total_Observations=('DateTime', 'count'),
             Animal_Detections=('animal_detected', 'sum'),
@@ -349,21 +360,17 @@ def compare_analysis_methods(combined_df):
     print(f"Animal detection success rate (camera active): {(animal_detections/camera_rows)*100:.1f}%")
     
     print("\n=== METHOD COMPARISON ===")
-    print("\n┌─────────────────────────────────────────────────────────────────────────┐")
-    print("│                    CAMERA ACTIVITY vs DETECTION EFFICIENCY             │")
-    print("├─────────────────────────────────────────────────────────────────────────┤")
-    print("│ CAMERA ACTIVITY PATTERN ANALYSIS:                                      │")
-    print("│ • Uses all 37,017 time periods (including sensor-only data)            │")
-    print("│ • Measures: Camera Active Periods / All Time Periods                   │")
-    print("│ • Shows: When cameras were operationally active                        │")
-    print("│ • Reveals: Equipment performance & monitoring bias patterns            │")
-    print("│                                                                         │")
-    print("│ WILDLIFE DETECTION EFFICIENCY ANALYSIS:                                │")
-    print("│ • Uses only 8,612 camera observation periods                           │")
-    print("│ • Measures: Animal Detections / Camera Observations                    │")
-    print("│ • Shows: Detection success when cameras were active                    │")
-    print("│ • Reveals: Wildlife behavior & optimal monitoring conditions           │")
-    print("└─────────────────────────────────────────────────────────────────────────┘")
+    print("\n--- CAMERA ACTIVITY vs DETECTION EFFICIENCY ---")
+    print("CAMERA ACTIVITY PATTERN ANALYSIS:")
+    print(f"  - Uses all {total_rows:,} time periods (including sensor-only data)")
+    print("  - Measures: Camera Active Periods / All Time Periods")
+    print("  - Shows: When cameras were operationally active")
+    print("  - Reveals: Equipment performance & monitoring bias patterns")
+    print("\nWILDLIFE DETECTION EFFICIENCY ANALYSIS:")
+    print(f"  - Uses only {camera_rows:,} camera observation periods")
+    print("  - Measures: Animal Detections / Camera Observations")
+    print("  - Shows: Detection success when cameras were active")
+    print("  - Reveals: Wildlife behavior & optimal monitoring conditions")
     
     # Calculate some example comparisons
     if 'Gate_Opening_MTR_Deg' in combined_df.columns:
@@ -386,19 +393,21 @@ def compare_analysis_methods(combined_df):
         success_rates = camera_obs.groupby('gate_category', observed=True)['animal_detected'].mean() * 100
         
         print("\nGate Position Analysis:")
-        print("Gate State                | Camera Activity | Detection Success | Interpretation")
-        print("─" * 85)
+        print(f"{'Gate State':<25} | {'Camera Activity':>15} | {'Detection Success':>17}")
+        print("-" * 65)
         for gate_state in activity_rates.index:
             if gate_state in success_rates.index:
                 activity_rate = activity_rates[gate_state]
                 success_rate = success_rates[gate_state]
-                print(f"{gate_state:<25} | {activity_rate:>13.1f}% | {success_rate:>15.1f}% | See below")
-        
-        print(f"\nInterpretation Examples:")
-        print(f"• Wide Open: Cameras active 27.1% of wide-open time periods")
-        print(f"             When active during wide-open periods, 6.0% detected animals")
-        print(f"• Closed: Cameras active 19.8% of closed time periods") 
-        print(f"          When active during closed periods, 2.8% detected animals")
+                print(f"{gate_state:<25} | {activity_rate:>14.1f}% | {success_rate:>16.1f}%")
+
+        print("\nInterpretation (computed from this dataset):")
+        for gate_state in activity_rates.index:
+            if gate_state in success_rates.index:
+                print(
+                    f"- {gate_state}: cameras active {activity_rates[gate_state]:.1f}% of these "
+                    f"time periods; when active, {success_rates[gate_state]:.1f}% detected animals"
+                )
     
     print("\n=== WHAT EACH METHOD TELLS US ===")
     print("\nCamera Activity Pattern Analysis reveals:")

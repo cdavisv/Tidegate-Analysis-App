@@ -1,0 +1,16 @@
+# Optional heavy stack for LOCAL computer-vision detection (AddaxAI-style).
+# Powers vision/megadetector.py: MegaDetector for detection + SpeciesNet for
+# species classification. Best on a machine with an NVIDIA GPU.
+#
+# Install with:
+#     pip install -r requirements-cv.txt
+#
+# Notes:
+# - Match torch to your CUDA version if using a GPU (see pytorch.org).
+# - Pytorch-Wildlife bundles MegaDetector v5/v6 weights on first use.
+# - SpeciesNet is optional; without it, animals are labelled generically.
+
+torch>=2.0.0
+torchvision>=0.15.0
+PytorchWildlife>=1.0.2
+speciesnet>=4.0.0        # optional: species-level classification
