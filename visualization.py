@@ -26,6 +26,14 @@ import os
 
 
 # --- Add this helper function at the top of visualization.py ---
+def _kaleido_available():
+    """Return True once if the optional 'kaleido' PNG-export engine is installed."""
+    import importlib.util
+    if not hasattr(_kaleido_available, "_cached"):
+        _kaleido_available._cached = importlib.util.find_spec("kaleido") is not None
+    return _kaleido_available._cached
+
+
 def save_plot(fig, filename):
     """Helper function to save a plot as both HTML and PNG."""
     # Create an 'output' directory if it doesn't exist
@@ -40,12 +48,14 @@ def save_plot(fig, filename):
     # Save the plot
     fig.write_html(html_path)
     print(f"   -> Saved interactive plot to: {html_path}")
-    
+
+    if not _kaleido_available():
+        return  # PNG export is optional; skip quietly when kaleido is absent.
     try:
         fig.write_image(png_path, scale=2)
         print(f"   -> Saved static image to: {png_path}")
     except Exception as e:
-        print(f"   -> Could not save PNG. Is 'kaleido' installed? (pip install kaleido). Error: {e}")
+        print(f"   -> Could not save PNG ({e}).")
 
 
 
@@ -315,7 +325,7 @@ def create_hypothesis_visualizations(df):
             continue
 
         summary_table = (
-            df.groupby([gate_col, 'detailed_tidal_flow'])['is_animal_detection']
+            df.groupby([gate_col, 'detailed_tidal_flow'], observed=False)['is_animal_detection']
             .mean()
             .unstack()
             .fillna(0)

@@ -138,5 +138,32 @@ def sidebar_status() -> None:
                 st.rerun()
 
 
+def page_link(path: str, label: str, icon: Optional[str] = None, **kwargs) -> None:
+    """Safe wrapper around ``st.page_link``.
+
+    ``st.page_link`` raises ``KeyError('url_pathname')`` when a page is rendered
+    outside an ``st.navigation`` context (e.g. a single page opened directly, or
+    in a test harness). This wrapper degrades to a simple link/caption instead of
+    crashing the whole page.
+    """
+    try:
+        st.page_link(path, label=label, icon=icon, **kwargs)
+    except Exception:
+        st.caption(f"→ {label}")
+
+
+def load_sample_data() -> None:
+    """Load the bundled Willanch demo CSVs (camera + sensor) into session state."""
+    import pandas as pd
+    st.session_state[K_CAMERA_DF] = pd.read_csv(
+        SAMPLE_CAMERA_CSV, low_memory=False, encoding="utf-8-sig"
+    )
+    st.session_state[K_CAMERA_SRC] = "Willanch demo camera CSV"
+    st.session_state[K_SENSOR_DF] = pd.read_csv(
+        SAMPLE_SENSOR_CSV, low_memory=False, encoding="utf-8-sig"
+    )
+    st.session_state[K_SENSOR_SRC] = "Willanch demo sensor CSV"
+
+
 def has_sample_data() -> bool:
     return os.path.exists(SAMPLE_CAMERA_CSV) and os.path.exists(SAMPLE_SENSOR_CSV)

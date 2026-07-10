@@ -218,6 +218,20 @@ if detections:
                           margin=dict(l=10, r=10, t=50, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
+    animal_dets = [d for d in detections
+                   if d.has_animal and d.image_path and os.path.exists(d.image_path)]
+    if animal_dets:
+        shown = animal_dets[:6]
+        with st.expander(f"Preview detected frames ({len(shown)} of {len(animal_dets)})",
+                         expanded=False):
+            pcols = st.columns(3)
+            for i, d in enumerate(shown):
+                cap = ", ".join(f"{it.label}\u00d7{it.count}" for it in d.animals[:3])
+                try:
+                    pcols[i % 3].image(d.image_path, caption=cap, use_container_width=True)
+                except Exception:
+                    pcols[i % 3].caption(f"{os.path.basename(d.image_path)} - {cap}")
+
     with st.expander("Per-detection table", expanded=False):
         long_df = detections_to_long_df(detections)
         st.dataframe(long_df, use_container_width=True, height=320)
@@ -231,7 +245,7 @@ if detections:
             mime="text/csv",
         )
         st.info("This dataset is now available on the **Analysis** page.")
-        st.page_link("views/analysis.py", label="Go to Analysis →", icon=":material/insights:")
+        ui.page_link("views/analysis.py", label="Go to Analysis →", icon=":material/insights:")
 
 with st.expander("How detection feeds the analysis"):
     st.markdown(

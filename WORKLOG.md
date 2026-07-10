@@ -9,6 +9,26 @@ Running log + working memory for agents. Newest on top. Keep concise.
 - CONTRACTS: camera CSV = 1 row/image; blank `Species 1` = valid no-detection record (dual-framework needs these). `data_loader.load_and_prepare_water_data` now keeps ALL numeric sensor columns so weather flows into the combined dataset.
 
 ## Log
+
+### 2026-07-09 — Pre-release hardening (agent: fable-5)
+Repaired a stray `*kwargs)` at EOF of `weather/sources.py` (SyntaxError that killed
+every page importing `weather`, i.e. the whole app). That was **working-tree-only**
+corruption — HEAD was already clean — so the repair restored the file to match HEAD
+and is not in this commit's diff (future agents: the mount can reintroduce this; a
+repo-wide `py_compile` now guards it). Fixed (committed) `weather_import.py` calling
+NOAA `fetch(..., tide_station=)` instead of `station_id=`.
+Added `ui.page_link` safe wrapper (pages no longer crash when rendered outside
+`st.navigation`) and routed all `st.page_link` calls through it. Home: one-click
+**Load demo & run full analysis** (loads bundled CSVs + runs the pipeline in one
+button, via new `ui.load_sample_data`). Analysis → Weather Patterns: added a
+cross-variable point-biserial correlation table. `visualization.save_plot`: guard
+optional `kaleido` (skip PNG export quietly instead of per-figure error spam) and
+`groupby(observed=False)` to silence a pandas FutureWarning. Detection: preview
+gallery of detected frames. Tests: new `tests/test_app_smoke.py` (module imports +
+repo-wide py_compile + NOAA signature guard + AppTest boot of all pages). Suite
+33 → 56 passing. Re-verified E2E on the real Willanch CSVs: 37,017 periods /
+8,612 camera / 406 detections; all 8 analysis tabs render exception-free.
+
 ### 2026-07-07 — Full pipeline shipped (agent: fable-5)
 Delivered: image detection (demo / MegaDetector+SpeciesNet / OpenAI GPT vision) -> camera dataset; weather import (Open-Meteo / NOAA / Synoptic / CSV) with nearest-time merge; polished multi-page app + in-app Help; new Weather-Patterns analysis view; demo quick-start.
 Bug fixes: removed hardcoded dataset numbers in comprehensive_analysis; UTF-8 BOM handling in data_loader; guarded Depth/Depth_Inside in data_combiner; tidal-quantile guard; water loader retains all numeric columns.

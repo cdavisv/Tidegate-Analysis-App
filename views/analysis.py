@@ -257,6 +257,36 @@ with tabs[4]:
     else:
         if "animal_detected" in combined.columns:
             cam = combined[combined["has_camera_data"] == True].copy()  # noqa: E712
+            det = cam["animal_detected"].astype(float)
+
+            # Correlation overview across every weather variable that has data.
+            rows = []
+            for c in present:
+                sv = pd.to_numeric(cam[c], errors="coerce")
+                valid = sv.notna()
+                if valid.sum() > 20:
+                    corr_val = sv[valid].corr(det[valid])
+                    if pd.isna(corr_val):
+                        continue  # constant variable -> undefined correlation
+                    rows.append({
+                        "Variable": weather_candidates.get(c, c),
+                        "n (camera obs)": int(valid.sum()),
+                        "Corr. w/ detection": round(float(corr_val), 3),
+                        "Mean · animal seen": round(float(sv[valid & (det == 1)].mean()), 2),
+                        "Mean · empty frame": round(float(sv[valid & (det == 0)].mean()), 2),
+                    })
+            if rows:
+                corr_df = (pd.DataFrame(rows)
+                           .assign(_a=lambda d: d["Corr. w/ detection"].abs())
+                           .sort_values("_a", ascending=False)
+                           .drop(columns="_a").reset_index(drop=True))
+                st.markdown("**How each weather variable relates to animal detection**")
+                st.dataframe(corr_df, use_container_width=True, hide_index=True)
+                st.caption("Point-biserial correlation (detection = 1/0) over camera-active "
+                           "observations, sorted by strength. Positive = animals more likely "
+                           "as the variable rises.")
+
+            st.markdown("**Drill into a single variable**")
             var = st.selectbox("Weather variable", present,
                                format_func=lambda c: weather_candidates.get(c, c))
             series = pd.to_numeric(cam[var], errors="coerce")

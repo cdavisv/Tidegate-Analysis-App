@@ -102,7 +102,7 @@ else:
                 src = get_source(source, **{k: v for k, v in fetch_kwargs.items() if v is not None})
                 if source == "noaa":
                     weather_df = src.fetch(lat, lon, start, end,
-                                           tide_station=st.session_state.get("noaa_station") or None)
+                                           station_id=st.session_state.get("noaa_station") or None)
                 else:
                     weather_df = src.fetch(lat, lon, start, end)
             st.session_state["_weather_fetch"] = weather_df
@@ -172,7 +172,7 @@ if weather_df is not None and not weather_df.empty:
             st.session_state[ui.K_SENSOR_SRC] = f"{source} weather/tide only"
             st.success("Weather/tide data set as the sensor table for analysis.")
 
-    st.page_link("views/analysis.py", label="Go to Analysis →", icon=":material/insights:")
+    ui.page_link("views/analysis.py", label="Go to Analysis →", icon=":material/insights:")
 
 with st.expander("About the sources"):
     st.markdown(
