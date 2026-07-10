@@ -308,11 +308,16 @@ def create_environmental_effectiveness_charts(combined_df):
         )
     
     # Tidal effectiveness - Shows when cameras were most active
-    if 'Depth' in camera_obs.columns:
+    _e = None
+    if 'Depth' in camera_obs.columns and camera_obs['Depth'].notna().any():
         quantiles = camera_obs['Depth'].quantile([0.25, 0.75])
+        _cand = [camera_obs['Depth'].min()-1, quantiles[0.25], quantiles[0.75], camera_obs['Depth'].max()+1]
+        if all(pd.notna(v) for v in _cand) and all(_cand[i] < _cand[i+1] for i in range(len(_cand)-1)):
+            _e = _cand
+    if _e is not None:
         camera_obs['tide_level'] = pd.cut(
             camera_obs['Depth'],
-            bins=[camera_obs['Depth'].min()-1, quantiles[0.25], quantiles[0.75], camera_obs['Depth'].max()+1],
+            bins=_e,
             labels=['Low Tide', 'Mid Tide', 'High Tide']
         )
         

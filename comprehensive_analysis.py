@@ -107,10 +107,11 @@ def analyze_environmental_factors_camera_activity(combined_df):
     tidal_analysis = None
     if 'Depth' in combined_df.columns:
         quantiles = combined_df['Depth'].quantile([0.25, 0.75]).to_dict()
-        if pd.notna(quantiles[0.25]):
+        _cand = [combined_df['Depth'].min()-1, quantiles[0.25], quantiles[0.75], combined_df['Depth'].max()+1]
+        if all(pd.notna(v) for v in _cand) and all(_cand[i] < _cand[i+1] for i in range(len(_cand)-1)):
             combined_df['tide_level'] = pd.cut(
                 combined_df['Depth'],
-                bins=[combined_df['Depth'].min()-1, quantiles[0.25], quantiles[0.75], combined_df['Depth'].max()+1],
+                bins=_cand,
                 labels=['Low Tide', 'Mid Tide', 'High Tide']
             )
             tidal_analysis = combined_df.groupby('tide_level', observed=True).agg(

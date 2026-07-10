@@ -162,11 +162,14 @@ def run_full_analysis(
     if tide_figs:
         figures.update(tide_figs)
 
-    addl_figs = additional_visualizations.create_all_additional_visualizations(
-        comprehensive_results, combined_df
-    )
-    if addl_figs:
-        figures.update(addl_figs)
+    try:
+        addl_figs = additional_visualizations.create_all_additional_visualizations(
+            comprehensive_results, combined_df
+        )
+        if addl_figs:
+            figures.update(addl_figs)
+    except Exception as exc:  # non-fatal; the extra dashboards are a nice-to-have
+        _emit(progress, f"(additional visualizations skipped: {exc})")
 
     return {
         "combined_df": combined_df,

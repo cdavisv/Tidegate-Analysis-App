@@ -86,7 +86,8 @@ with q2:
     st.markdown(
         "**Try image detection**\n\n"
         "Point the detector at a folder of images or upload a few, and watch it build "
-        "the camera dataset. The **demo** detector needs no models or API keys."
+        "the camera dataset. No images handy? The **✨ Demo set** tab generates a synthetic "
+        "batch and runs the **demo** detector in one click — no models or API keys."
     )
     ui.page_link("views/detection.py", label="Open Image Detection →", icon=":material/photo_camera:")
 

@@ -118,7 +118,9 @@ st.divider()
 # 2. Provide images
 # -------------------------------------------------------------------------
 st.subheader("2 · Provide images")
-src_tab, up_tab = st.tabs(["📁 Folder on disk", "⬆️ Upload images"])
+src_tab, up_tab, demo_tab = st.tabs(
+    ["📁 Folder on disk", "⬆️ Upload images", "✨ Demo set (no files)"]
+)
 
 images = []
 source_desc = ""
@@ -154,6 +156,31 @@ with up_tab:
         images = [im for im in images if os.path.basename(im.path) in upl_names]
         st.caption(f"Uploaded **{len(images)}** image(s).")
         source_desc = f"{len(images)} uploaded images"
+
+with demo_tab:
+    st.caption(
+        "No camera images handy? Generate a synthetic image set and run the **demo "
+        "detector** to see the image → dataset step end-to-end — no files, models, "
+        "or keys needed. Timestamps span the bundled Willanch sensor window, so the result "
+        "lines up with the demo tide/weather data on the Analysis page."
+    )
+    dc1, dc2 = st.columns(2)
+    demo_n = dc1.number_input("How many images", min_value=10, max_value=5000, value=200,
+                              step=10, key="demo_n")
+    demo_seed = dc2.number_input("Random seed", value=1234, step=1, key="demo_seed")
+    if st.button("✨ Generate demo set & detect", type="primary", key="demo_run"):
+        from vision.demo_data import synthetic_image_refs
+        refs = synthetic_image_refs(int(demo_n), seed=int(demo_seed))
+        demo_det = get_detector("demo", detection_probability=0.30, seed=int(demo_seed))
+        with st.spinner(f"Detecting on {len(refs):,} synthetic images…"):
+            dets = demo_det.detect_batch(refs)
+        st.session_state[ui.K_DETECTIONS] = dets
+        st.session_state[ui.K_CAMERA_DF] = detections_to_camera_df(dets)
+        st.session_state[ui.K_CAMERA_SRC] = f"Demo (synthetic) · {len(refs):,} generated images"
+        st.success(
+            f"Generated and detected {len(dets):,} synthetic images. See the results below, "
+            "then head to the Analysis page (the demo sensor loads there)."
+        )
 
 st.divider()
 

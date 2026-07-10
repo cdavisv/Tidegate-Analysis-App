@@ -6,9 +6,26 @@ Running log + working memory for agents. Newest on top. Keep concise.
 - MOUNT GOTCHA: repo is a Windows mount inside the Linux sandbox. Editing an EXISTING tracked file via the Edit/Write tools updates the app view but bash/git can read STALE bytes (or the file gets trailing NUL padding / truncation when new content is shorter). NEW paths read fine. Reliable fix: rewrite bytes with `python3 -c "open(p,'wb').write(b)"` (this truncates), then re-read to confirm. Mount deletes often fail. Tracked files show as fully "modified" in git due to CRLF vs the LF-committed base — normalize to LF before `git add`.
 - TESTING: deps at /tmp/pylibs (system pip fails; /sessions home full). Run `PYTHONPATH=/tmp/pylibs PYTHONPYCACHEPREFIX=/tmp/pyc python3 -m pytest`; clear /tmp/pyc after edits (stale .pyc).
 - ARCHITECTURE: `app.py` (st.navigation) entry; pages in `views/`. Detection in `vision/` (demo | megadetector | openai behind Detector ABC; `camera_csv.py` emits the wide schema the loader expects). Weather in `weather/` (open-meteo | noaa | synoptic | csv). `pipeline_runner.run_full_analysis(camera, water)` wraps the dual-framework analysis. Session keys + theme in `ui_common.py`; config in `config.py`/`config.json`.
-- CONTRACTS: camera CSV = 1 row/image; blank `Species 1` = valid no-detection record (dual-framework needs these). `data_loader.load_and_prepare_water_data` now keeps ALL numeric sensor columns so weather flows into the combined dataset.
+- CONTRACTS: camera CSV = 1 row/image; blank `Species 1` = valid no-detection record (dual-framework needs these). `data_loader.load_and_prepare_water_data` now keeps ALL numeric sensor columns so weather flows into the combined dataset. All tidal quantile `pd.cut` sites are guarded against non-monotonic (degenerate/constant-Depth) edges. A camera dataset can be generated with NO image files via `vision.demo_data.synthetic_image_refs` (Detection → ✨ Demo set).
 
 ## Log
+
+### 2026-07-09 — Verification + robustness pass (agent: opus / cowork)
+Reviewed and ran the whole app headless — all 6 pages boot; full end-to-end via the
+Home one-click demo = 37,017 periods / 8,612 camera / 406 detections / 16 figures;
+live Open-Meteo fetch verified against the real API. Fixed a real crash: the tidal
+`pd.cut` in `additional_visualizations.create_environmental_effectiveness_charts`
+raised "bins must increase monotonically" when camera-active Depth was
+(near-)constant, which aborted the ENTIRE analysis (that call was unguarded).
+Applied the existing monotonic-edge guard there and to the two other unguarded
+quantile cuts (`comprehensive_analysis`, `environmental_analysis`), and wrapped
+`create_all_additional_visualizations` in `pipeline_runner` so no single bonus
+visualization can abort a run. New: `vision/demo_data.synthetic_image_refs` + a
+Detection-page "✨ Demo set (no files)" tab — a one-click image→dataset demo (the
+demo detector never reads pixels; generated filenames carry timestamps spanning the
+bundled sensor window, so results line up with the demo tide/weather data). Tests
+56 → 63 (new `tests/test_demo_and_regression.py`: demo generator + tidal-guard
+regressions). Prior hardening is committed as b09e727.
 
 ### 2026-07-09 — Pre-release hardening (agent: fable-5)
 Repaired a stray `*kwargs)` at EOF of `weather/sources.py` (SyntaxError that killed

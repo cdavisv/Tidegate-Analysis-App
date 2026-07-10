@@ -104,12 +104,14 @@ def analyze_environmental_factors(combined_df):
             if not depth_data.empty:
                 quantiles = depth_data['Depth'].quantile([0.25, 0.75])
                 
-                # FIXED: Explicitly cast to avoid FutureWarning
-                tide_level_categories = pd.cut(
-                    depth_data['Depth'],
-                    bins=[depth_data['Depth'].min()-0.01, quantiles[0.25], quantiles[0.75], depth_data['Depth'].max()+0.01],
-                    labels=['Low Tide', 'Mid Tide', 'High Tide']
-                )
+                # Guard against degenerate (non-monotonic) quantile bin edges.
+                _cand = [depth_data['Depth'].min()-0.01, quantiles[0.25], quantiles[0.75], depth_data['Depth'].max()+0.01]
+                if all(pd.notna(v) for v in _cand) and all(_cand[i] < _cand[i+1] for i in range(len(_cand)-1)):
+                    tide_level_categories = pd.cut(
+                        depth_data['Depth'], bins=_cand,
+                        labels=['Low Tide', 'Mid Tide', 'High Tide'])
+                else:
+                    tide_level_categories = pd.Series(pd.NA, index=depth_data.index)
                 depth_data = depth_data.assign(tide_level=tide_level_categories)
                 
                 # FIXED: Explicitly cast to int to avoid FutureWarning
